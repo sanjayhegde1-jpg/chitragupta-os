@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-// Verification Trigger: Force Frontend Re-Deploy (Billing Enabled) - Attempt 4
+// Verification Trigger: Force Frontend Re-Deploy (Dependency Override Check) - Attempt 5
 
 const nextConfig: NextConfig = {
   env: {
