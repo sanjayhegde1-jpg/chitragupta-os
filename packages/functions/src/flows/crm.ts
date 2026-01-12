@@ -6,6 +6,7 @@ import * as admin from 'firebase-admin';
 
 // Local Zod def strictly adhering to the "glass box" principle where we see the code.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
+/**
 const LeadSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -16,6 +17,7 @@ const LeadSchema = z.object({
   notes: z.string().optional(),
   createdAt: z.string(),
 });
+**/
 
 export const crmIngestFlow = defineFlow(
   {
