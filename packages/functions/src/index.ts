@@ -29,4 +29,4 @@ export const helloChitragupta = functions.https.onRequest((request, response) =>
 });
 
 
-// Verification Trigger: Force Backend Re-Deploy (IAM Permissions Check) - Attempt 3 (Final)
+// Verification Trigger: Force Backend Re-Deploy (Billing Enabled) - Attempt 4
