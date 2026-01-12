@@ -4,7 +4,7 @@ import { executiveFlow } from './flows/executive';
 import { indiamartPollerFlow } from './flows/indiamart';
 import { crmIngestFlow } from './flows/crm';
 import { setGlobalOptions } from 'firebase-functions/v2';
-import { onRequest } from 'firebase-functions/v2/https';
+// import { onRequest } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 
 setGlobalOptions({ region: 'asia-south1' });

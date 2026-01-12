@@ -1,9 +1,8 @@
-import { defineFlow } from '@genkit-ai/flow';
+import { defineFlow, runFlow } from '@genkit-ai/flow';
 import { z } from 'zod';
-import { generate } from '@genkit-ai/googleai';
+import { generate } from '@genkit-ai/ai';
 import { gemini15Flash } from '@genkit-ai/vertexai'; 
 import { socialManagerFlow } from './social';
-import { crmIngestFlow } from './crm';
 
 export const executiveFlow = defineFlow(
   {
@@ -31,7 +30,7 @@ export const executiveFlow = defineFlow(
 
     // 2. Route Request
     if (intent === 'SOCIAL_DRAFT') {
-      const result = await socialManagerFlow({ topic: userQuery });
+      const result = await runFlow(socialManagerFlow, { topic: userQuery });
       return `Social Agent initiated. Status: ${result.status}. Content: ${result.postContent}`;
     }
 

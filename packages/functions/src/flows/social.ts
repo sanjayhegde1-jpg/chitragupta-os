@@ -1,6 +1,6 @@
-import { defineFlow } from '@genkit-ai/flow';
+import { defineFlow, interrupt } from '@genkit-ai/flow';
 import { z } from 'zod';
-import { generate } from '@genkit-ai/googleai';
+import { generate } from '@genkit-ai/ai';
 import { gemini15Pro } from '@genkit-ai/vertexai';
 import * as admin from 'firebase-admin';
 
@@ -10,7 +10,7 @@ export const socialManagerFlow = defineFlow(
     inputSchema: z.object({ topic: z.string() }),
     outputSchema: z.object({ postContent: z.string(), status: z.string() }),
   },
-  async (input, { interrupt }) => {
+  async (input) => {
     const db = admin.firestore();
 
     // 1. RAG Retrieval (Mocking Vector Search for now as we don't have embeddings fully set up in this snippet)

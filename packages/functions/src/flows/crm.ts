@@ -1,11 +1,11 @@
 import { defineFlow } from '@genkit-ai/flow';
 import { z } from 'zod';
-import { generate } from '@genkit-ai/googleai';
+import { generate } from '@genkit-ai/ai';
 import { gemini15Flash } from '@genkit-ai/vertexai';
 import * as admin from 'firebase-admin';
-// import { LeadSchema } from '@chitragupta/shared'; 
-// Using local Zod def to avoid unresolved import path issues during fast iteration, 
-// strictly adhering to the "glass box" principle where we see the code.
+
+// Local Zod def strictly adhering to the "glass box" principle where we see the code.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const LeadSchema = z.object({
   id: z.string(),
   name: z.string(),
