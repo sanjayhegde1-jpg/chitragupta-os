@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+// Verification Trigger: Force Frontend Re-Deploy
+
 const nextConfig: NextConfig = {
   env: {
      // SAFETY LOCK: Force Mock Mode OFF in production builds.
