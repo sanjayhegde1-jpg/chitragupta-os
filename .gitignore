@@ -34,3 +34,7 @@ thumbs.db
 
 # User-specific
 .firebaserc # Optional: Commit if shared, ignore if private aliases
+
+# Secrets
+service-account.json
+temp_secret.json
