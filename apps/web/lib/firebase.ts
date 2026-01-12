@@ -13,5 +13,10 @@ const firebaseConfig = {
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 const db = getFirestore(app);
+import { getFunctions } from 'firebase/functions';
+import { getStorage } from 'firebase/storage';
 
-export { app, db };
+const functions = getFunctions(app, 'asia-south1');
+const storage = getStorage(app);
+
+export { app, db, functions, storage };
