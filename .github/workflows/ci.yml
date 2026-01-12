@@ -64,12 +64,13 @@ jobs:
       - name: Build Backend
         run: npm run build -w @chitragupta/functions
 
+      - name: Authenticate via Service Account
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_BEEHIVE_OS_DEV }}' > sa_key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/sa_key.json" >> $GITHUB_ENV
+
       - name: Deploy Brain (Functions & Firestore)
         run: npx firebase-tools deploy --only functions,firestore --project beehive-os-dev --force
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_json_path }}
-          # Fallback if using token or simple service account env
-          FIREBASE_SERVICE_ACCOUNT_BEEHIVE_OS_DEV: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_BEEHIVE_OS_DEV }}
 
       # Note: We use the FIREBASE_SERVICE_ACCOUNT_... convention which google-github-actions/auth or firebase-action usually expects,
       # but standard firebase-tools CLI supports GOOGLE_APPLICATION_CREDENTIALS env var if we dump the secret to a file.
