@@ -1,4 +1,5 @@
 import { defineFlow } from '@genkit-ai/flow';
+// interrupt import removed for stability
 import { z } from 'zod';
 import { generate } from '@genkit-ai/ai';
 import { gemini15Pro } from '@genkit-ai/vertexai';

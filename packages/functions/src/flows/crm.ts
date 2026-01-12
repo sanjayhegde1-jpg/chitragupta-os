@@ -5,19 +5,7 @@ import { gemini15Flash } from '@genkit-ai/vertexai';
 import * as admin from 'firebase-admin';
 
 // Local Zod def strictly adhering to the "glass box" principle where we see the code.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-/**
-const LeadSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  phone: z.string().optional(),
-  email: z.string().optional(),
-  status: z.enum(['new', 'contacted', 'qualified', 'converted', 'lost']),
-  source: z.string(),
-  notes: z.string().optional(),
-  createdAt: z.string(),
-});
-**/
+// Schema removed to satisfy unused variable check in CI.
 
 export const crmIngestFlow = defineFlow(
   {
