@@ -53,7 +53,7 @@ export const socialManagerFlow = defineFlow(
       };
     }
     */
-    const approval = { approved: true }; // Auto-approve for now to unblock build
+    // const approval = { approved: true };
 
     // 4. Publish (Placeholder)
     console.log(`[Social] Publishing to LinkedIn: ${content}`);
