@@ -1,0 +1,19 @@
+{
+  "name": "chitragupta-os",
+  "version": "1.0.0",
+  "description": "Enterprise AI OS for Manufacturing CRM and Social Media Automation",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Chitragupta Engineering Taskforce",
+  "license": "ISC",
+  "devDependencies": {
+    "ts-node": "^10.9.2"
+  }
+}

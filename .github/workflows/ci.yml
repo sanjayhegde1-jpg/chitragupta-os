@@ -1,0 +1,114 @@
+name: Deployment Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ------------------------------------------------------------------
+  # JOB 1: CHANGE DETECTION (Smart Monorepo)
+  # ------------------------------------------------------------------
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'packages/functions/**'
+              - 'packages/shared/**'
+              - 'firebase.json'
+            frontend:
+              - 'apps/web/**'
+              - 'firebase.json'
+
+  # ------------------------------------------------------------------
+  # JOB 2: BACKEND DEPLOYMENT (Brain)
+  # ------------------------------------------------------------------
+  deploy-backend:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      # Hack for Cloud Functions Shared Dependency 
+      # (Mimicking the local fix: Pack shared -> Install in functions)
+      - name: Bundle Shared Library
+        run: |
+          cd packages/shared
+          npm pack
+          mv *.tgz ../functions/shared.tgz
+          cd ../functions
+          npm install ./shared.tgz
+
+      - name: Build Backend
+        run: npm run build -w @chitragupta/functions
+
+      - name: Deploy Brain (Functions & Firestore)
+        run: npx firebase-tools deploy --only functions,firestore --project beehive-os-dev --force
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_json_path }}
+          # Fallback if using token or simple service account env
+          FIREBASE_SERVICE_ACCOUNT_BEEHIVE_OS_DEV: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_BEEHIVE_OS_DEV }}
+
+      # Note: We use the FIREBASE_SERVICE_ACCOUNT_... convention which google-github-actions/auth or firebase-action usually expects, 
+      # but standard firebase-tools CLI supports GOOGLE_APPLICATION_CREDENTIALS env var if we dump the secret to a file.
+      # SIMPLEST APPROACH: Use `firebase-tools` with `GOOGLE_APPLICATION_CREDENTIALS` env var pointing to a file created from the secret.
+      
+      - name: Authenticate via Service Account
+        if: always() # Just to show this block logic
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_BEEHIVE_OS_DEV }}' > sa_key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/sa_key.json" >> $GITHUB_ENV
+
+  # ------------------------------------------------------------------
+  # JOB 3: FRONTEND DEPLOYMENT (Face)
+  # ------------------------------------------------------------------
+  deploy-frontend:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.frontend == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Frontend
+        run: npm run build -w web
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+
+      - name: Authenticate via Service Account
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_BEEHIVE_OS_DEV }}' > sa_key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/sa_key.json" >> $GITHUB_ENV
+
+      - name: Deploy Face (Hosting)
+        run: npx firebase-tools deploy --only hosting --project beehive-os-dev
