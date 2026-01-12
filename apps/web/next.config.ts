@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
      NEXT_PUBLIC_TEST_MODE: process.env.NODE_ENV === 'production' ? 'false' : process.env.NEXT_PUBLIC_TEST_MODE,
   },
   // Verifying CI Build Hook: Experiment Enabled
+  transpilePackages: ['@chitragupta/shared'],
 };
 
 export default nextConfig;
