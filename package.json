@@ -14,6 +14,7 @@
   "author": "Chitragupta Engineering Taskforce",
   "license": "ISC",
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "ts-node": "^10.9.2"
   }
 }
