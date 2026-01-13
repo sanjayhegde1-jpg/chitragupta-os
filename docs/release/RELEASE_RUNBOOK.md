@@ -57,6 +57,11 @@ node scripts/set-director-claim.cjs --email admin@example.com --value false
   - `WHATSAPP_ACCESS_TOKEN`
   - `WHATSAPP_PHONE_NUMBER_ID`
 
+### WhatsApp rate limits
+- Configure optional caps in Firestore: `system_config/whatsapp`
+  - `maxPerDay` (total outbound WhatsApp/day)
+  - `maxPerLeadPerDay` (per-lead outbound WhatsApp/day)
+
 Set secrets (optional, if using Firebase secrets):
 ```bash
 firebase functions:secrets:set WHATSAPP_ACCESS_TOKEN
