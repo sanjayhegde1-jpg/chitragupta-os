@@ -37,7 +37,8 @@ test.describe('Outcome MVP flows', () => {
   test('Manual intake -> follow-up task created', async ({ page }) => {
     await page.goto('/inbox');
 
-    await page.getByLabel('Source').selectOption('instagram');
+    const manualCard = page.getByRole('heading', { name: 'Manual Social Intake' }).locator('..');
+    await manualCard.locator('select').selectOption('instagram');
     await page.getByLabel('Name', { exact: true }).fill('Maya');
     await page.getByLabel('Phone', { exact: true }).fill('9000000000');
     await page.getByLabel('Email', { exact: true }).fill('maya@example.com');
