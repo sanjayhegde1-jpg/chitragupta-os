@@ -122,6 +122,11 @@ export const approveQuoteDraft = onFlow(
       { merge: true }
     );
 
+    await db.collection('leads').doc(approval.leadId).set(
+      { status: 'quoted', updatedAt: new Date().toISOString() },
+      { merge: true }
+    );
+
     const messageRef = db.collection('leads').doc(approval.leadId).collection('messages').doc();
     await messageRef.set({
       id: messageRef.id,

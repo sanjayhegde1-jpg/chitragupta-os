@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../../lib/firebase';
+import { mockStore } from '../../lib/mockStore';
 
 type ApprovalItem = {
   id: string;
@@ -12,6 +13,7 @@ type ApprovalItem = {
   status?: string;
   draft?: {
     message?: string;
+    pdfUrl?: string;
   };
   type?: string;
   platform?: string;
@@ -19,10 +21,20 @@ type ApprovalItem = {
 };
 
 export default function ApprovalsPage() {
+  const isTestMode = process.env.NEXT_PUBLIC_TEST_MODE === 'true';
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
   const [status, setStatus] = useState('');
 
   useEffect(() => {
+    if (isTestMode) {
+      const update = () => {
+        const pending = mockStore.getApprovals().filter((a) => a.status === 'pending');
+        setApprovals(pending);
+      };
+      update();
+      return mockStore.subscribe(update);
+    }
+
     const q = query(collection(db, 'approvals'), where('status', '==', 'pending'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -30,11 +42,28 @@ export default function ApprovalsPage() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [isTestMode]);
 
   const handleDecision = async (item: ApprovalItem, decision: 'approved' | 'rejected') => {
     setStatus('Processing...');
     try {
+      if (isTestMode) {
+        mockStore.updateApproval(item.id, decision === 'approved' ? 'approved' : 'rejected');
+        if (decision === 'approved') {
+          mockStore.addMessage({
+            id: `msg_${Date.now()}`,
+            leadId: item.leadId || 'unknown',
+            direction: 'outbound',
+            channel: 'whatsapp',
+            content: item.draft?.message || item.draft?.pdfUrl || 'Approved message',
+            createdAt: new Date().toISOString(),
+          });
+          mockStore.updateLeadStatus(item.leadId || '', item.kind === 'quote' ? 'quoted' : 'contacted');
+        }
+        setStatus('Done.');
+        return;
+      }
+
       if (item.kind === 'whatsapp') {
         const approve = httpsCallable(functions, 'approveWhatsappDraft');
         await approve({ approvalId: item.id, decision });

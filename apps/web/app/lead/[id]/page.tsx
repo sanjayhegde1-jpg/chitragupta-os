@@ -6,6 +6,7 @@ import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions, storage } from '../../../lib/firebase';
 import { LeadTimeline } from '../../../components/crm/LeadTimeline';
+import { mockStore } from '../../../lib/mockStore';
 
 type LeadRecord = {
   id: string;
@@ -54,10 +55,21 @@ const generateMinimalPdf = (title: string, lines: string[]) => {
 };
 
 export default function LeadDetailPage({ params }: { params: { id: string } }) {
+  const isTestMode = process.env.NEXT_PUBLIC_TEST_MODE === 'true';
   const [lead, setLead] = useState<LeadRecord | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (isTestMode) {
+      const update = () => {
+        const found = mockStore.getLeads().find((item) => item.id === params.id) as LeadRecord | undefined;
+        setLead(found || null);
+        setLoading(false);
+      };
+      update();
+      return mockStore.subscribe(update);
+    }
+
     const fetchLead = async () => {
       try {
         const docRef = doc(db, 'leads', params.id);
@@ -73,7 +85,7 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
       }
     };
     fetchLead();
-  }, [params.id]);
+  }, [params.id, isTestMode]);
 
   if (loading) return <div className="p-8">Loading Lead...</div>;
   if (!lead) return <div className="p-8">Lead not found.</div>;
@@ -126,10 +138,23 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
         <div className="space-y-3">
           <button
             onClick={async () => {
-              const createDraft = httpsCallable(functions, 'createWhatsappDraft');
-
               const message = prompt('Enter WhatsApp message:', 'Hello! Thanks for your enquiry.');
               if (!message) return;
+
+              if (isTestMode) {
+                mockStore.addApproval({
+                  id: `apv_${Date.now()}`,
+                  kind: 'whatsapp',
+                  leadId: lead.id,
+                  draft: { message },
+                  status: 'pending',
+                  createdAt: new Date().toISOString(),
+                });
+                alert('Draft created (test mode).');
+                return;
+              }
+
+              const createDraft = httpsCallable(functions, 'createWhatsappDraft');
 
               try {
                 alert('Creating approval...');
@@ -152,6 +177,20 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
             onClick={async () => {
               const input = prompt('Paste latest enquiry text for agent:');
               if (!input) return;
+              if (isTestMode) {
+                const reply = `Thanks for reaching out. Please share details for ${lead.name || 'your request'}.`;
+                mockStore.addApproval({
+                  id: `apv_${Date.now()}`,
+                  kind: 'whatsapp',
+                  leadId: lead.id,
+                  draft: { message: reply },
+                  status: 'pending',
+                  createdAt: new Date().toISOString(),
+                });
+                alert('Agent draft created (test mode).');
+                return;
+              }
+
               const agent = httpsCallable(functions, 'nextBestAction');
               const res = await agent({ content: input, source: lead.source || 'manual' });
               const data = res.data as { reply?: string; confidence?: number };
@@ -178,6 +217,29 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
                 `Price: ${price}`,
                 `Total: ${total}`,
               ]);
+
+              if (isTestMode) {
+                const quoteId = `q_${Date.now()}`;
+                mockStore.addQuote({
+                  id: quoteId,
+                  leadId: lead.id,
+                  items: [{ title: itemTitle, qty, price }],
+                  total,
+                  status: 'draft',
+                  pdfUrl: 'mock://quote.pdf',
+                  createdAt: new Date().toISOString(),
+                });
+                mockStore.addApproval({
+                  id: `apv_${Date.now()}`,
+                  kind: 'quote',
+                  leadId: lead.id,
+                  draft: { quoteId, pdfUrl: 'mock://quote.pdf', total },
+                  status: 'pending',
+                  createdAt: new Date().toISOString(),
+                });
+                alert('Quote draft created (test mode).');
+                return;
+              }
 
               const storageRef = ref(storage, `quotes/${lead.id}_${Date.now()}.pdf`);
               await uploadBytes(storageRef, pdfBytes, { contentType: 'application/pdf' });

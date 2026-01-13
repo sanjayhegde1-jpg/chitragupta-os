@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { collection, doc, getDocs, increment, onSnapshot, orderBy, query, setDoc, updateDoc, where } from 'firebase/firestore';
 import { getAuth, getIdTokenResult, onAuthStateChanged } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
 import { db, app, functions } from '../../lib/firebase';
+import { mockStore } from '../../lib/mockStore';
 
 type EnquiryItem = {
   id: string;
@@ -93,6 +95,7 @@ const parseCsv = (text: string): CsvState => {
 const sanitizeId = (value: string) => value.replace(/[^a-zA-Z0-9_-]/g, '_');
 
 export default function InboxPage() {
+  const isTestMode = process.env.NEXT_PUBLIC_TEST_MODE === 'true';
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [enquiries, setEnquiries] = useState<EnquiryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,8 +112,14 @@ export default function InboxPage() {
   const [manualStatus, setManualStatus] = useState('');
   const [agentStatus, setAgentStatus] = useState('');
   const [isDirector, setIsDirector] = useState(false);
+  const [taskCount, setTaskCount] = useState(0);
 
   useEffect(() => {
+    if (isTestMode) {
+      setIsDirector(true);
+      return;
+    }
+
     const auth = getAuth(app);
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -121,9 +130,22 @@ export default function InboxPage() {
       setIsDirector(Boolean(token.claims.director));
     });
     return () => unsubscribe();
-  }, []);
+  }, [isTestMode]);
 
   useEffect(() => {
+    if (isTestMode) {
+      const update = () => {
+        const allLeads = [...mockStore.getLeads()].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+        const pending = mockStore.getEnquiries().filter((e) => !e.triaged).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+        setLeads(allLeads);
+        setEnquiries(pending);
+        setTaskCount(mockStore.getTasks().length);
+        setLoading(false);
+      };
+      update();
+      return mockStore.subscribe(update);
+    }
+
     const leadsQuery = query(collection(db, 'leads'), orderBy('createdAt', 'desc'));
     const unsubscribeLeads = onSnapshot(leadsQuery, (snapshot) => {
       const data = snapshot.docs.map((docSnap) => ({
@@ -151,7 +173,7 @@ export default function InboxPage() {
       unsubscribeLeads();
       unsubscribeEnquiries();
     };
-  }, []);
+  }, [isTestMode]);
 
   const csvPreviewRows = useMemo(() => csvState.rows.slice(0, 5), [csvState]);
 
@@ -171,6 +193,10 @@ export default function InboxPage() {
   };
 
   const findExistingLead = async (phone?: string, email?: string) => {
+    if (isTestMode) {
+      return mockStore.getLeads().find((lead) => (phone && lead.phone === phone) || (email && lead.email === email)) || null;
+    }
+
     if (!phone && !email) return null;
     if (phone) {
       const q = query(collection(db, 'leads'), where('phone', '==', phone));
@@ -186,6 +212,7 @@ export default function InboxPage() {
   };
 
   const updateDailyMetrics = async (source: string) => {
+    if (isTestMode) return;
     const id = new Date().toISOString().slice(0, 10);
     const data: Record<string, ReturnType<typeof increment> | string> = {
       id,
@@ -216,15 +243,54 @@ export default function InboxPage() {
       const sourceRef = sanitizeId(sourceRefRaw);
       const enquiryId = `${csvSource}_${sourceRef}`;
 
-      const enquiryRef = doc(db, 'enquiries', enquiryId);
-
       const name = csvMapping.name ? row[csvMapping.name] : undefined;
       const phone = csvMapping.phone ? row[csvMapping.phone] : undefined;
       const email = csvMapping.email ? row[csvMapping.email] : undefined;
       const content = csvMapping.content ? row[csvMapping.content] : 'Imported enquiry';
 
       const existingLead = await findExistingLead(phone, email);
-      let leadId = existingLead?.id;
+      let leadId = (existingLead as { id?: string } | null)?.id;
+
+      if (isTestMode) {
+        if (!leadId) {
+          leadId = `lead_${Date.now()}_${Math.random()}`;
+          mockStore.addLead({
+            id: leadId,
+            name: name || 'Unknown',
+            phone,
+            email,
+            whatsappNumber: phone,
+            source: csvSource,
+            status: 'new',
+            consentStatus: 'unknown',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+        }
+
+        mockStore.addEnquiry({
+          id: enquiryId,
+          source: csvSource,
+          sourceRef: sourceRefRaw,
+          content,
+          contact: { name, phone, email },
+          leadId,
+          triaged: false,
+          createdAt: new Date().toISOString(),
+        });
+
+        mockStore.addMessage({
+          id: `msg_${Date.now()}`,
+          leadId,
+          direction: 'inbound',
+          channel: 'manual',
+          content,
+          createdAt: new Date().toISOString(),
+        });
+
+        imported += 1;
+        continue;
+      }
 
       if (!leadId) {
         const leadRef = doc(collection(db, 'leads'));
@@ -243,7 +309,7 @@ export default function InboxPage() {
         });
       }
 
-      await setDoc(enquiryRef, {
+      await setDoc(doc(db, 'enquiries', enquiryId), {
         id: enquiryId,
         source: csvSource,
         sourceRef: sourceRefRaw,
@@ -290,7 +356,66 @@ export default function InboxPage() {
     const name = manualName || undefined;
 
     const existingLead = await findExistingLead(phone, email);
-    let leadId = existingLead?.id;
+    let leadId = (existingLead as { id?: string } | null)?.id;
+
+    if (isTestMode) {
+      if (!leadId) {
+        leadId = `lead_${Date.now()}_${Math.random()}`;
+        mockStore.addLead({
+          id: leadId,
+          name: name || 'Unknown',
+          phone,
+          email,
+          whatsappNumber: phone,
+          source: manualSource,
+          status: 'new',
+          consentStatus: 'unknown',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      mockStore.addEnquiry({
+        id: enquiryId,
+        source: manualSource,
+        sourceRef,
+        content: manualContent,
+        contact: {
+          name,
+          phone,
+          email,
+          username: manualUsername || undefined,
+        },
+        leadId,
+        triaged: false,
+        createdAt: new Date().toISOString(),
+      });
+
+      mockStore.addMessage({
+        id: `msg_${Date.now()}`,
+        leadId,
+        direction: 'inbound',
+        channel: 'manual',
+        content: manualContent,
+        createdAt: new Date().toISOString(),
+      });
+
+      mockStore.addTask({
+        id: `task_${Date.now()}`,
+        leadId,
+        type: 'follow_up',
+        status: 'open',
+        createdAt: new Date().toISOString(),
+      });
+
+      setManualStatus('Saved. Follow-up task created.');
+      setManualContent('');
+      setManualName('');
+      setManualPhone('');
+      setManualEmail('');
+      setManualUsername('');
+      return;
+    }
 
     if (!leadId) {
       const leadRef = doc(collection(db, 'leads'));
@@ -335,8 +460,17 @@ export default function InboxPage() {
       createdAt: new Date().toISOString(),
     });
 
+    const taskRef = doc(collection(db, 'tasks'));
+    await setDoc(taskRef, {
+      id: taskRef.id,
+      leadId,
+      type: 'follow_up',
+      status: 'open',
+      createdAt: new Date().toISOString(),
+    });
+
     await updateDailyMetrics(manualSource);
-    setManualStatus('Saved.');
+    setManualStatus('Saved. Follow-up task created.');
     setManualContent('');
     setManualName('');
     setManualPhone('');
@@ -348,6 +482,12 @@ export default function InboxPage() {
     if (!isDirector) {
       return;
     }
+
+    if (isTestMode) {
+      mockStore.markTriaged(enquiryId);
+      return;
+    }
+
     await updateDoc(doc(db, 'enquiries', enquiryId), {
       triaged: true,
       updatedAt: new Date().toISOString(),
@@ -365,6 +505,20 @@ export default function InboxPage() {
     }
     try {
       setAgentStatus('Running agent...');
+      if (isTestMode) {
+        const reply = `Thanks for reaching out about ${item.source}. Can you share details?`;
+        mockStore.addApproval({
+          id: `apv_${Date.now()}`,
+          kind: 'whatsapp',
+          leadId: item.leadId,
+          draft: { message: reply },
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+        });
+        setAgentStatus('Draft created (confidence 40%).');
+        return;
+      }
+
       const agent = httpsCallable(functions, 'nextBestAction');
       const draft = await agent({ content: item.content, source: item.source });
       const data = draft.data as { reply?: string; confidence?: number; reasons?: string[] };
@@ -420,7 +574,7 @@ export default function InboxPage() {
                     </div>
                     <p className="mt-2 text-gray-800">{item.content}</p>
                     <p className="text-xs text-gray-500 mt-1">
-                      {item.contact.name || 'Unknown'} · {item.contact.phone || 'No phone'} · {item.contact.email || 'No email'}
+                      {item.contact.name || 'Unknown'} | {item.contact.phone || 'No phone'} | {item.contact.email || 'No email'}
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -552,6 +706,7 @@ export default function InboxPage() {
               Save Intake
             </button>
             {manualStatus && <span className="text-sm text-gray-600">{manualStatus}</span>}
+            {isTestMode && <span className="text-xs text-gray-400">Follow-up tasks: {taskCount}</span>}
           </div>
         </div>
       </section>
@@ -566,13 +721,14 @@ export default function InboxPage() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Open</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {loading ? (
-              <tr><td colSpan={5} className="p-4 text-center">Loading leads...</td></tr>
+              <tr><td colSpan={6} className="p-4 text-center">Loading leads...</td></tr>
             ) : leads.length === 0 ? (
-              <tr><td colSpan={5} className="p-4 text-center text-gray-500">No leads found.</td></tr>
+              <tr><td colSpan={6} className="p-4 text-center text-gray-500">No leads found.</td></tr>
             ) : (
               leads.map((lead) => (
                 <tr key={lead.id} className="hover:bg-gray-50">
@@ -592,6 +748,11 @@ export default function InboxPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{lead.phone}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <Link href={`/lead/${lead.id}`} className="text-blue-600 hover:text-blue-800">
+                      Open
+                    </Link>
                   </td>
                 </tr>
               ))

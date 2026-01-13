@@ -51,18 +51,16 @@ node scripts/set-director-claim.cjs --email admin@example.com --value true
 node scripts/set-director-claim.cjs --email admin@example.com --value false
 ```
 
-### Secrets
-- Functions rely on Firebase secrets or environment variables.
-- Required secrets (examples):
-  - `WABA_TOKEN`
-  - `INDIAMART_API_KEY`
-  - `INDIAMART_MOBILE` (optional fallback used if not set)
+### WhatsApp provider
+- Mock provider runs automatically when creds are missing (non-production).
+- For live sends, set:
+  - `WHATSAPP_ACCESS_TOKEN`
+  - `WHATSAPP_PHONE_NUMBER_ID`
 
-Set secrets:
+Set secrets (optional, if using Firebase secrets):
 ```bash
-firebase functions:secrets:set WABA_TOKEN
-firebase functions:secrets:set INDIAMART_API_KEY
-firebase functions:secrets:set INDIAMART_MOBILE
+firebase functions:secrets:set WHATSAPP_ACCESS_TOKEN
+firebase functions:secrets:set WHATSAPP_PHONE_NUMBER_ID
 ```
 
 ## Local checks
