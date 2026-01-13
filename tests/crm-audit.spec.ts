@@ -63,7 +63,7 @@ test.describe('Outcome MVP flows', () => {
     await page.waitForURL(/\/lead\//);
     const leadUrl = page.url();
 
-    const responses = ['Quote for Raj', 'Pump Model X', '2', '1500'];
+    const responses = ['Quote for Raj', 'Pump Model X', '2', '1500', '7'];
     page.on('dialog', (dialog) => {
       if (dialog.type() === 'prompt') {
         const response = responses.shift();
