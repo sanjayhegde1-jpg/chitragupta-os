@@ -3,6 +3,7 @@ import { z } from 'zod';
 import * as admin from 'firebase-admin';
 import { directorAuth } from '../lib/auth';
 import { sendWhatsAppMessage } from '../lib/whatsappProvider';
+import { updateDailyMetrics } from '../lib/metrics';
 
 const DraftSchema = z.object({
   leadId: z.string(),
@@ -28,6 +29,8 @@ export const createWhatsappDraft = onFlow(
       status: 'pending',
       createdAt: new Date().toISOString(),
     });
+
+    await updateDailyMetrics({ approvalsPending: 1 });
 
     return { approvalId, status: 'PENDING' };
   }
@@ -62,11 +65,13 @@ export const approveWhatsappDraft = onFlow(
         },
         { merge: true }
       );
+      await updateDailyMetrics({ approvalsPending: -1 });
       return { status: 'REJECTED' };
     }
 
     const leadSnap = await db.collection('leads').doc(approval.leadId).get();
     if (!leadSnap.exists) {
+      await updateDailyMetrics({ approvalsPending: -1 });
       return { status: 'FAILED', error: 'Lead not found' };
     }
 
@@ -80,6 +85,7 @@ export const approveWhatsappDraft = onFlow(
         },
         { merge: true }
       );
+      await updateDailyMetrics({ approvalsPending: -1 });
       return { status: 'FAILED', error: 'No WhatsApp number' };
     }
 
@@ -91,6 +97,7 @@ export const approveWhatsappDraft = onFlow(
         },
         { merge: true }
       );
+      await updateDailyMetrics({ approvalsPending: -1 });
       return { status: 'FAILED', error: 'WhatsApp consent missing' };
     }
 
@@ -103,6 +110,7 @@ export const approveWhatsappDraft = onFlow(
         },
         { merge: true }
       );
+      await updateDailyMetrics({ approvalsPending: -1 });
       return { status: 'FAILED', error: result.error || 'Send failed' };
     }
 
@@ -113,6 +121,7 @@ export const approveWhatsappDraft = onFlow(
       },
       { merge: true }
     );
+    await updateDailyMetrics({ approvalsPending: -1 });
 
     const messageRef = db.collection('leads').doc(approval.leadId).collection('messages').doc();
     await messageRef.set({

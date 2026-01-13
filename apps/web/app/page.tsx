@@ -111,6 +111,14 @@ export default function Home() {
           <h3 className="text-xl font-bold mb-2 text-green-600">Templates</h3>
           <p className="text-sm text-gray-500">WhatsApp message presets.</p>
         </Link>
+        <Link href="/catalog" className="p-6 bg-white rounded shadow hover:shadow-lg transition cursor-pointer border border-gray-100">
+          <h3 className="text-xl font-bold mb-2 text-purple-600">Catalog</h3>
+          <p className="text-sm text-gray-500">Products, assets, and pricing.</p>
+        </Link>
+        <Link href="/dashboard" className="p-6 bg-white rounded shadow hover:shadow-lg transition cursor-pointer border border-gray-100">
+          <h3 className="text-xl font-bold mb-2 text-indigo-600">Dashboard</h3>
+          <p className="text-sm text-gray-500">SLA, approvals, and funnel health.</p>
+        </Link>
       </div>
     </main>
   );

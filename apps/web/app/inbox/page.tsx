@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { collection, doc, getDocs, onSnapshot, orderBy, query, setDoc, updateDoc, where } from 'firebase/firestore';
+import { collection, doc, getDocs, increment, onSnapshot, orderBy, query, setDoc, updateDoc, where } from 'firebase/firestore';
 import { getAuth, getIdTokenResult, onAuthStateChanged } from 'firebase/auth';
 import { db, app } from '../../lib/firebase';
 
@@ -183,6 +183,17 @@ export default function InboxPage() {
     return null;
   };
 
+  const updateDailyMetrics = async (source: string) => {
+    const id = new Date().toISOString().slice(0, 10);
+    const data: Record<string, ReturnType<typeof increment> | string> = {
+      id,
+      enquiries: increment(1),
+      untriaged: increment(1),
+    };
+    data[`sourceBreakdown.${source}`] = increment(1);
+    await setDoc(doc(db, 'metrics_daily', id), data, { merge: true });
+  };
+
   const importCsv = async () => {
     if (!isDirector) {
       setImportStatus('Access denied. Director permissions required.');
@@ -251,6 +262,7 @@ export default function InboxPage() {
         createdAt: new Date().toISOString(),
       });
 
+      await updateDailyMetrics(csvSource);
       imported += 1;
     }
 
@@ -321,6 +333,7 @@ export default function InboxPage() {
       createdAt: new Date().toISOString(),
     });
 
+    await updateDailyMetrics(manualSource);
     setManualStatus('Saved.');
     setManualContent('');
     setManualName('');
