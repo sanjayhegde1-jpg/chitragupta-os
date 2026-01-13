@@ -54,11 +54,17 @@ firebase functions:secrets:set INDIAMART_MOBILE
 ## Local checks
 ```bash
 npm.cmd ci
+npm.cmd run check:lockfiles
 npm.cmd run lint
 npm.cmd run typecheck
 npm.cmd test
 npm.cmd run build
 ```
+
+## Package manager rule
+- Use npm only.
+- Only the root `package-lock.json` is allowed.
+- Run `npm.cmd run check:lockfiles` in CI to enforce.
 
 ## Firebase deploy
 ```bash

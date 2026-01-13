@@ -9,11 +9,13 @@
   ],
   "scripts": {
     "preflight": "node scripts/preflight-node.cjs",
+    "check:lockfiles": "node scripts/check-lockfiles.cjs",
     "lint": "npm run lint --workspace web",
     "typecheck": "node scripts/preflight-node.cjs && npx tsc -p apps/web/tsconfig.json --noEmit && npx tsc -p packages/functions/tsconfig.json --noEmit && npx tsc -p packages/shared/tsconfig.json --noEmit",
     "test": "playwright test",
     "build": "npm run build --workspaces --if-present"
   },
+  "packageManager": "npm@11.6.2",
   "keywords": [],
   "author": "Chitragupta Engineering Taskforce",
   "license": "ISC",
