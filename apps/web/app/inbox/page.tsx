@@ -111,14 +111,12 @@ export default function InboxPage() {
   const [importStatus, setImportStatus] = useState('');
   const [manualStatus, setManualStatus] = useState('');
   const [agentStatus, setAgentStatus] = useState('');
-  const [isDirector, setIsDirector] = useState(false);
+  const [isDirector, setIsDirector] = useState(isTestMode);
   const [taskCount, setTaskCount] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    if (isTestMode) {
-      setIsDirector(true);
-      return;
-    }
+    if (isTestMode) return;
 
     const auth = getAuth(app);
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -174,6 +172,13 @@ export default function InboxPage() {
       unsubscribeEnquiries();
     };
   }, [isTestMode]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(Date.now());
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const csvPreviewRows = useMemo(() => csvState.rows.slice(0, 5), [csvState]);
 
@@ -236,7 +241,7 @@ export default function InboxPage() {
 
     setImportStatus('Importing...');
     let imported = 0;
-    let skipped = 0;
+    const skipped = 0;
 
     for (const row of csvState.rows) {
       const sourceRefRaw = (csvMapping.sourceRef && row[csvMapping.sourceRef]) || `row_${Date.now()}_${Math.random()}`;
@@ -507,8 +512,9 @@ export default function InboxPage() {
       setAgentStatus('Running agent...');
       if (isTestMode) {
         const reply = `Thanks for reaching out about ${item.source}. Can you share details?`;
+        const approvalId = `apv_${item.id}_${item.createdAt.replace(/[:.]/g, '-')}`;
         mockStore.addApproval({
-          id: `apv_${Date.now()}`,
+          id: approvalId,
           kind: 'whatsapp',
           leadId: item.leadId,
           draft: { message: reply },
@@ -536,7 +542,7 @@ export default function InboxPage() {
   };
 
   const getSlaBadge = (createdAt: string) => {
-    const ageMinutes = (Date.now() - new Date(createdAt).getTime()) / 60000;
+    const ageMinutes = (now - new Date(createdAt).getTime()) / 60000;
     if (ageMinutes > 120) return { label: 'SLA 2h+', className: 'bg-red-100 text-red-700' };
     if (ageMinutes > 30) return { label: 'SLA 30m+', className: 'bg-yellow-100 text-yellow-700' };
     return { label: 'Fresh', className: 'bg-green-100 text-green-700' };

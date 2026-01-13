@@ -38,7 +38,10 @@ export default function ApprovalsPage() {
     const q = query(collection(db, 'approvals'), where('status', '==', 'pending'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setApprovals(snapshot.docs.map((doc) => ({ id: doc.id, ...(doc.data() as ApprovalItem) })));
+      setApprovals(snapshot.docs.map((docSnap) => {
+        const data = docSnap.data() as ApprovalItem;
+        return { ...data, id: docSnap.id };
+      }));
     });
 
     return () => unsubscribe();
@@ -51,7 +54,7 @@ export default function ApprovalsPage() {
         mockStore.updateApproval(item.id, decision === 'approved' ? 'approved' : 'rejected');
         if (decision === 'approved') {
           mockStore.addMessage({
-            id: `msg_${Date.now()}`,
+            id: `msg_${item.id}`,
             leadId: item.leadId || 'unknown',
             direction: 'outbound',
             channel: 'whatsapp',

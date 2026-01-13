@@ -109,7 +109,9 @@ const notify = () => {
 export const mockStore = {
   subscribe: (fn: Listener) => {
     listeners.add(fn);
-    return () => listeners.delete(fn);
+    return () => {
+      listeners.delete(fn);
+    };
   },
   getEnquiries: () => state.enquiries,
   getLeads: () => state.leads,

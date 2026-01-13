@@ -19,12 +19,12 @@ export function LeadTimeline({ leadId }: { leadId: string }) {
   useEffect(() => {
     if (isTestMode) {
       const update = () => {
-        const msgs = mockStore.getMessages(leadId).map((msg) => ({
-          id: msg.id,
-          sender: msg.direction === 'inbound' ? 'user' : 'ai',
-          text: msg.content,
-          time: new Date(msg.createdAt).toLocaleTimeString(),
-        }));
+      const msgs = mockStore.getMessages(leadId).map((msg) => ({
+        id: msg.id,
+        sender: (msg.direction === 'inbound' ? 'user' : 'ai') as Message['sender'],
+        text: msg.content,
+        time: new Date(msg.createdAt).toLocaleTimeString(),
+      }));
         setMessages(msgs.length > 0 ? msgs : []);
       };
       update();
@@ -40,7 +40,7 @@ export function LeadTimeline({ leadId }: { leadId: string }) {
         const payload = docSnap.data() as { direction?: string; content?: string; createdAt?: string };
         return {
           id: docSnap.id,
-          sender: payload.direction === 'inbound' ? 'user' : 'ai',
+          sender: (payload.direction === 'inbound' ? 'user' : 'ai') as Message['sender'],
           text: payload.content || '',
           time: payload.createdAt ? new Date(payload.createdAt).toLocaleTimeString() : '',
         };

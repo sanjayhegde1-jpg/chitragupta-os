@@ -86,9 +86,15 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    loadMetrics();
-    const interval = setInterval(loadMetrics, 60000);
-    return () => clearInterval(interval);
+    const schedule = () => {
+      void loadMetrics();
+    };
+    const timeout = setTimeout(schedule, 0);
+    const interval = setInterval(schedule, 60000);
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
   }, []);
 
   return (

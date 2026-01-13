@@ -41,7 +41,10 @@ export default function CatalogPage() {
   useEffect(() => {
     const q = query(collection(db, 'catalog_items'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setItems(snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as CatalogItem) })));
+      setItems(snapshot.docs.map((docSnap) => {
+        const data = docSnap.data() as CatalogItem;
+        return { ...data, id: docSnap.id };
+      }));
     });
     return () => unsubscribe();
   }, []);
