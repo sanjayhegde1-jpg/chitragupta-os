@@ -19,6 +19,7 @@ export default function DashboardPage() {
   const [tiles, setTiles] = useState<Tile[]>([]);
   const [sourceBreakdown, setSourceBreakdown] = useState<Record<string, number>>({});
   const [funnel, setFunnel] = useState<Record<string, number>>({});
+  const [approvalsByType, setApprovalsByType] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   const loadMetrics = async () => {
@@ -41,6 +42,8 @@ export default function DashboardPage() {
       wonLeadsSnap,
       approvedQuotesSnap,
       oldestEnquirySnap,
+      untriagedDocsSnap,
+      approvalsDocsSnap,
     ] = await Promise.all([
       getCountFromServer(enquiriesTodayQuery),
       getCountFromServer(untriagedQuery),
@@ -50,6 +53,8 @@ export default function DashboardPage() {
       getCountFromServer(wonLeadsQuery),
       getCountFromServer(approvedQuotesQuery),
       getDocs(query(collection(db, 'enquiries'), where('triaged', '==', false), orderBy('createdAt', 'asc'), limit(1))),
+      getDocs(untriagedQuery),
+      getDocs(approvalsPendingQuery),
     ]);
 
     const oldest = oldestEnquirySnap.docs[0]?.data()?.createdAt;
@@ -58,12 +63,25 @@ export default function DashboardPage() {
     const enquiriesTodayCount = enquiriesTodaySnap.data().count;
     const untriagedCount = untriagedSnap.data().count;
     const approvalsPendingCount = approvalsSnap.data().count;
+    const slaBreaches = untriagedDocsSnap.docs.filter((docSnap) => {
+      const createdAt = docSnap.data().createdAt;
+      if (!createdAt) return false;
+      return (Date.now() - new Date(createdAt).getTime()) / 60000 > 30;
+    }).length;
+
+    const approvalsCountByType: Record<string, number> = {};
+    approvalsDocsSnap.forEach((docSnap) => {
+      const kind = docSnap.data().kind || 'unknown';
+      approvalsCountByType[kind] = (approvalsCountByType[kind] || 0) + 1;
+    });
+    setApprovalsByType(approvalsCountByType);
 
     setTiles([
       { label: 'New enquiries today', value: enquiriesTodayCount },
       { label: 'Untriaged queue', value: untriagedCount },
       { label: 'Oldest untriaged (min)', value: oldest ? oldestAgeMinutes : 'N/A' },
       { label: 'Approvals pending', value: approvalsPendingCount },
+      { label: 'SLA breaches (30m+)', value: slaBreaches },
     ]);
 
     const enquiryDocs = await getDocs(enquiriesTodayQuery);
@@ -140,6 +158,19 @@ export default function DashboardPage() {
             <div className="flex justify-between"><span>Approved Quotes</span><span className="font-semibold">{funnel.approvedQuotes || 0}</span></div>
             <div className="flex justify-between"><span>Won</span><span className="font-semibold">{funnel.won || 0}</span></div>
           </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg border shadow p-6">
+        <h2 className="text-xl font-semibold mb-4">Approvals Pending by Type</h2>
+        {Object.keys(approvalsByType).length === 0 && <p className="text-gray-500">No pending approvals.</p>}
+        <div className="space-y-2 text-sm text-gray-600">
+          {Object.entries(approvalsByType).map(([kind, count]) => (
+            <div key={kind} className="flex justify-between">
+              <span className="capitalize">{kind}</span>
+              <span className="font-semibold">{count}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
