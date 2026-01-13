@@ -8,7 +8,11 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "preflight": "node scripts/preflight-node.cjs",
+    "lint": "npm run lint --workspace web",
+    "typecheck": "node scripts/preflight-node.cjs && npx tsc -p apps/web/tsconfig.json --noEmit && npx tsc -p packages/functions/tsconfig.json --noEmit && npx tsc -p packages/shared/tsconfig.json --noEmit",
+    "test": "playwright test",
+    "build": "npm run build --workspaces --if-present"
   },
   "keywords": [],
   "author": "Chitragupta Engineering Taskforce",
