@@ -1,32 +1,30 @@
-import { socialManagerFlow } from './flows/social';
-import { socialListenerFlow } from './flows/listener';
-import { executiveFlow } from './flows/executive';
-import { indiamartPollerFlow } from './flows/indiamart';
-import { crmIngestFlow } from './flows/crm';
 import { setGlobalOptions } from 'firebase-functions/v2';
-// import { onRequest } from 'firebase-functions/v2/https';
+import { onRequest } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
+import { verifyRequestAuth } from './lib/auth';
 
 setGlobalOptions({ region: 'asia-south1' });
 
-// Ensure Firebase Admin is initialized
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 
-// Export flows for Genkit
-export { 
-  socialManagerFlow, 
-  socialListenerFlow,
-  executiveFlow,
-  indiamartPollerFlow,
-  crmIngestFlow
-};
+// Genkit Flows (Refactored to Cloud Functions)
+export { socialManager } from './flows/social';
+export { socialListener } from './flows/listener';
+export { executive } from './flows/executive';
+export { indiamartPoller } from './flows/indiamart';
+export { crmIngest } from './flows/crm';
+export { whatsappSendTemplate } from './flows/whatsapp';
+export { getDashboardMetrics } from './flows/metrics';
 
-import { onRequest } from 'firebase-functions/v2/https';
+// Verification Endpoint
+export const helloChitragupta = onRequest(async (request, response) => {
+  const auth = await verifyRequestAuth(request);
+  if (!auth) {
+    response.status(401).send('Unauthorized');
+    return;
+  }
 
-export const helloChitragupta = onRequest((request, response) => {
   response.send("Chitragupta OS | Genkit Brain Active");
 });
-
-// Verification Trigger: Force Backend Re-Deploy (Region Fix) - Attempt 6

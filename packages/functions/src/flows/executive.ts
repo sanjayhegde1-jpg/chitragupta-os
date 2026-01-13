@@ -1,14 +1,17 @@
-import { defineFlow, runFlow } from '@genkit-ai/flow';
+import { onFlow } from '@genkit-ai/firebase/functions';
+import { runFlow } from '@genkit-ai/flow';
 import { z } from 'zod';
 import { generate } from '@genkit-ai/ai';
 import { gemini15Flash } from '@genkit-ai/vertexai'; 
-import { socialManagerFlow } from './social';
+import { socialManager } from './social';
+import { firebaseAuth } from '../lib/auth';
 
-export const executiveFlow = defineFlow(
+export const executive = onFlow(
   {
     name: 'executiveRouter',
     inputSchema: z.object({ userQuery: z.string() }),
     outputSchema: z.string(),
+    authPolicy: firebaseAuth,
   },
   async ({ userQuery }) => {
     // 1. Classify Intent
@@ -30,7 +33,7 @@ export const executiveFlow = defineFlow(
 
     // 2. Route Request
     if (intent === 'SOCIAL_DRAFT') {
-      const result = await runFlow(socialManagerFlow, { topic: userQuery });
+      const result = await runFlow(socialManager, { topic: userQuery });
       return `Social Agent initiated. Status: ${result.status}. Content: ${result.postContent}`;
     }
 

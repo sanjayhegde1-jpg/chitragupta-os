@@ -1,17 +1,19 @@
-import { defineFlow } from '@genkit-ai/flow';
+import { onFlow } from '@genkit-ai/firebase/functions';
 import { z } from 'zod';
 import { generate } from '@genkit-ai/ai';
 import { gemini15Flash } from '@genkit-ai/vertexai';
 import * as admin from 'firebase-admin';
+import { firebaseAuth } from '../lib/auth';
 
 // Local Zod def strictly adhering to the "glass box" principle where we see the code.
 // Schema removed to satisfy unused variable check in CI.
 
-export const crmIngestFlow = defineFlow(
+export const crmIngest = onFlow(
   {
     name: 'crmIngest',
     inputSchema: z.object({ rawText: z.string(), source: z.string().default('manual') }),
     outputSchema: z.object({ leadId: z.string(), status: z.string(), similarity: z.string().optional() }),
+    authPolicy: firebaseAuth,
   },
   async ({ rawText, source }) => {
     const db = admin.firestore();

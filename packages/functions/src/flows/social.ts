@@ -1,15 +1,17 @@
-import { defineFlow } from '@genkit-ai/flow';
-// interrupt import removed for stability
+import { onFlow } from '@genkit-ai/firebase/functions';
+// Interrupt not available in this version. Using async approval pattern.
 import { z } from 'zod';
 import { generate } from '@genkit-ai/ai';
 import { gemini15Pro } from '@genkit-ai/vertexai';
 import * as admin from 'firebase-admin';
+import { firebaseAuth } from '../lib/auth';
 
-export const socialManagerFlow = defineFlow(
+export const socialManager = onFlow(
   {
     name: 'socialManager',
     inputSchema: z.object({ topic: z.string() }),
     outputSchema: z.object({ postContent: z.string(), status: z.string() }),
+    authPolicy: firebaseAuth,
   },
   async (input) => {
     const db = admin.firestore();
@@ -32,35 +34,25 @@ export const socialManagerFlow = defineFlow(
     
     const content = draft.text();
 
-    // 3. Interrupt for Approval
-    // TODO: Re-enable interrupt when correct API import is found for Genkit v0.5+
-    /*
-    const approval = await interrupt({
-      eventName: 'approval_required',
-      payload: { 
-        type: 'SOCIAL_POST', 
+    // 3. Create Approval Request (Async Pattern)
+    const approvalId = `apv_${Date.now()}`;
+    await db.collection('approvals').doc(approvalId).set({
+        id: approvalId,
+        type: 'SOCIAL_POST',
+        platform: 'LinkedIn',
         content: content,
-        platform: 'LinkedIn' 
-      },
-      // Validates the resume payload from the dashboard
-      validate: z.object({ approved: z.boolean(), feedback: z.string().optional() }),
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        flowId: 'socialManager' 
     });
 
-    if (!approval.approved) {
-      return { 
-        postContent: "Rejected by user.", 
-        status: "REJECTED" 
-      };
-    }
-    */
-    // const approval = { approved: true };
+    console.log(`[Social] Approval requested: ${approvalId}. Flow exiting.`);
 
-    // 4. Publish (Placeholder)
-    console.log(`[Social] Publishing to LinkedIn: ${content}`);
-    
+    // 4. Return Pending Status
     return { 
       postContent: content, 
-      status: "PUBLISHED" 
+      status: "PENDING_APPROVAL",
+      approvalId: approvalId 
     };
   }
 );
