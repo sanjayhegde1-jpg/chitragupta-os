@@ -16,6 +16,7 @@ export { executive } from './flows/executive';
 export { indiamartPoller } from './flows/indiamart';
 export { crmIngest } from './flows/crm';
 export { createWhatsappDraft, approveWhatsappDraft } from './flows/whatsapp';
+export { createQuoteDraft, approveQuoteDraft } from './flows/quotes';
 export { getDashboardMetrics } from './flows/metrics';
 
 // Verification Endpoint

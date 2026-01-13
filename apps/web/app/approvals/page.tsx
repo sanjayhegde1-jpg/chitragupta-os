@@ -38,6 +38,9 @@ export default function ApprovalsPage() {
       if (item.kind === 'whatsapp') {
         const approve = httpsCallable(functions, 'approveWhatsappDraft');
         await approve({ approvalId: item.id, decision });
+      } else if (item.kind === 'quote') {
+        const approve = httpsCallable(functions, 'approveQuoteDraft');
+        await approve({ approvalId: item.id, decision });
       } else {
         console.warn('Unknown approval kind', item.kind);
       }
@@ -68,7 +71,7 @@ export default function ApprovalsPage() {
               <h3 className="font-semibold text-lg">{item.kind || item.type || 'Action Request'}</h3>
               <p className="text-gray-600">Lead: {item.leadId || 'Unknown'}</p>
               <div className="mt-2 p-3 bg-gray-50 rounded text-sm italic border">
-                &quot;{item.draft?.message || item.content || 'No draft'}&quot;
+                &quot;{item.draft?.message || item.content || item.draft?.pdfUrl || 'No draft'}&quot;
               </div>
             </div>
             <div className="space-x-4 flex">

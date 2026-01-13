@@ -14,6 +14,45 @@ service cloud.firestore {
       allow read, write: if isDirector();
     }
 
+    match /enquiries/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isDirector();
+    }
+
+    match /leads/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isDirector();
+    }
+
+    match /leads/{leadId}/messages/{messageId} {
+      allow read: if isSignedIn();
+      allow write: if isDirector();
+    }
+
+    match /approvals/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isDirector();
+    }
+
+    match /catalog_items/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isDirector();
+    }
+
+    match /quotes/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isDirector();
+    }
+
+    match /tasks/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isDirector();
+    }
+
+    match /metrics_daily/{docId} {
+      allow read, write: if isDirector();
+    }
+
     match /{document=**} {
       allow read, write: if isSignedIn();
     }
