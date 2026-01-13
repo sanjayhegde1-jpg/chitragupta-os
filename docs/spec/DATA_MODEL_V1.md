@@ -9,6 +9,7 @@
   - sourceRef: string (provider id or CSV row id)
   - content: string
   - contact: { name?: string, phone?: string, email?: string, username?: string }
+  - rawPayload?: object (original inbound payload)
   - leadId?: string
   - triaged: boolean
   - createdAt: string (ISO)
@@ -61,6 +62,7 @@
   - createdAt: string
   - decidedAt?: string
   - decidedBy?: string
+  - outcome?: string
 
 ### catalog_items
 - Catalog assets + metadata
@@ -98,3 +100,7 @@
 - enquiries: source, triaged, createdAt
 - leads: phone, email, updatedAt
 - approvals: status, createdAt
+
+## Dedupe rules
+- Primary: (source, sourceRef/sourceEnquiryId) -> use deterministic enquiry id.
+- Secondary: phone/email match within last 30 days.

@@ -58,6 +58,7 @@ export const EnquirySchema = z.object({
     email: z.string().optional(),
     username: z.string().optional(),
   }),
+  rawPayload: z.record(z.unknown()).optional(),
   leadId: z.string().optional(),
   triaged: z.boolean(),
   createdAt: z.string(),
@@ -116,6 +117,7 @@ export const ApprovalV1Schema = z.object({
   createdAt: z.string(),
   decidedAt: z.string().optional(),
   decidedBy: z.string().optional(),
+  outcome: z.string().optional(),
 });
 export type ApprovalV1 = z.infer<typeof ApprovalV1Schema>;
 

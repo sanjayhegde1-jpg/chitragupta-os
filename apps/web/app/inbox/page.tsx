@@ -93,6 +93,11 @@ const parseCsv = (text: string): CsvState => {
 };
 
 const sanitizeId = (value: string) => value.replace(/[^a-zA-Z0-9_-]/g, '_');
+const isWithin30Days = (iso?: string) => {
+  if (!iso) return false;
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  return new Date(iso).getTime() >= cutoff;
+};
 
 export default function InboxPage() {
   const isTestMode = process.env.NEXT_PUBLIC_TEST_MODE === 'true';
@@ -114,6 +119,8 @@ export default function InboxPage() {
   const [isDirector, setIsDirector] = useState(isTestMode);
   const [taskCount, setTaskCount] = useState(0);
   const [now, setNow] = useState(() => Date.now());
+  const [sourceFilter, setSourceFilter] = useState<'all' | (typeof SOURCE_OPTIONS)[number]>('all');
+  const [slaFilter, setSlaFilter] = useState<'all' | '30m' | '2h'>('all');
 
   useEffect(() => {
     if (isTestMode) return;
@@ -181,6 +188,15 @@ export default function InboxPage() {
   }, []);
 
   const csvPreviewRows = useMemo(() => csvState.rows.slice(0, 5), [csvState]);
+  const filteredEnquiries = useMemo(() => {
+    return enquiries.filter((item) => {
+      if (sourceFilter !== 'all' && item.source !== sourceFilter) return false;
+      const ageMinutes = (now - new Date(item.createdAt).getTime()) / 60000;
+      if (slaFilter === '30m' && ageMinutes <= 30) return false;
+      if (slaFilter === '2h' && ageMinutes <= 120) return false;
+      return true;
+    });
+  }, [enquiries, now, sourceFilter, slaFilter]);
 
   const handleCsvUpload = async (file: File) => {
     const text = await file.text();
@@ -206,12 +222,24 @@ export default function InboxPage() {
     if (phone) {
       const q = query(collection(db, 'leads'), where('phone', '==', phone));
       const snap = await getDocs(q);
-      if (!snap.empty) return snap.docs[0];
+      const candidates = snap.docs
+        .map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as Omit<LeadRow, 'id'>) }))
+        .filter((lead) => isWithin30Days(lead.createdAt));
+      if (candidates.length > 0) {
+        candidates.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+        return { id: candidates[0].id } as { id: string };
+      }
     }
     if (email) {
       const q = query(collection(db, 'leads'), where('email', '==', email));
       const snap = await getDocs(q);
-      if (!snap.empty) return snap.docs[0];
+      const candidates = snap.docs
+        .map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as Omit<LeadRow, 'id'>) }))
+        .filter((lead) => isWithin30Days(lead.createdAt));
+      if (candidates.length > 0) {
+        candidates.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+        return { id: candidates[0].id } as { id: string };
+      }
     }
     return null;
   };
@@ -279,6 +307,7 @@ export default function InboxPage() {
           sourceRef: sourceRefRaw,
           content,
           contact: { name, phone, email },
+          rawPayload: row,
           leadId,
           triaged: false,
           createdAt: new Date().toISOString(),
@@ -290,6 +319,14 @@ export default function InboxPage() {
           direction: 'inbound',
           channel: 'manual',
           content,
+          createdAt: new Date().toISOString(),
+        });
+
+        mockStore.addTask({
+          id: `task_${enquiryId}`,
+          leadId,
+          type: 'follow_up',
+          status: 'open',
           createdAt: new Date().toISOString(),
         });
 
@@ -320,6 +357,7 @@ export default function InboxPage() {
         sourceRef: sourceRefRaw,
         content,
         contact: { name, phone, email },
+        rawPayload: row,
         leadId,
         triaged: false,
         createdAt: new Date().toISOString(),
@@ -332,6 +370,15 @@ export default function InboxPage() {
         direction: 'inbound',
         channel: 'manual',
         content,
+        createdAt: new Date().toISOString(),
+      });
+
+      const taskRef = doc(collection(db, 'tasks'));
+      await setDoc(taskRef, {
+        id: taskRef.id,
+        leadId,
+        type: 'follow_up',
+        status: 'open',
         createdAt: new Date().toISOString(),
       });
 
@@ -391,6 +438,14 @@ export default function InboxPage() {
           email,
           username: manualUsername || undefined,
         },
+        rawPayload: {
+          source: manualSource,
+          content: manualContent,
+          name,
+          phone,
+          email,
+          username: manualUsername || undefined,
+        },
         leadId,
         triaged: false,
         createdAt: new Date().toISOString(),
@@ -445,6 +500,14 @@ export default function InboxPage() {
       sourceRef,
       content: manualContent,
       contact: {
+        name,
+        phone,
+        email,
+        username: manualUsername || undefined,
+      },
+      rawPayload: {
+        source: manualSource,
+        content: manualContent,
         name,
         phone,
         email,
@@ -564,11 +627,38 @@ export default function InboxPage() {
 
       <section className="bg-white rounded-lg shadow border border-gray-200 p-6">
         <h2 className="text-xl font-semibold mb-4">Zero Leakage Queue</h2>
-        {enquiries.length === 0 ? (
+        <div className="flex flex-wrap gap-3 mb-4">
+          <label className="text-sm text-gray-600">
+            Source
+            <select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value as typeof sourceFilter)}
+              className="ml-2 border rounded px-2 py-1 text-sm"
+            >
+              <option value="all">All</option>
+              {SOURCE_OPTIONS.map((source) => (
+                <option key={source} value={source}>{source}</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm text-gray-600">
+            SLA
+            <select
+              value={slaFilter}
+              onChange={(e) => setSlaFilter(e.target.value as typeof slaFilter)}
+              className="ml-2 border rounded px-2 py-1 text-sm"
+            >
+              <option value="all">All</option>
+              <option value="30m">30m+ breach</option>
+              <option value="2h">2h+ breach</option>
+            </select>
+          </label>
+        </div>
+        {filteredEnquiries.length === 0 ? (
           <p className="text-gray-500">No untriaged enquiries.</p>
         ) : (
           <div className="space-y-4">
-            {enquiries.map((item) => {
+            {filteredEnquiries.map((item) => {
               const sla = getSlaBadge(item.createdAt);
               return (
                 <div key={item.id} className="border rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">

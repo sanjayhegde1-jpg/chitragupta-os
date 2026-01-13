@@ -11,6 +11,7 @@ type Enquiry = {
     email?: string;
     username?: string;
   };
+  rawPayload?: Record<string, unknown>;
   leadId?: string;
   triaged: boolean;
   createdAt: string;
@@ -36,6 +37,9 @@ type Approval = {
   draft: Record<string, unknown>;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
+  decidedAt?: string;
+  decidedBy?: string;
+  outcome?: string;
 };
 
 type Message = {
@@ -133,10 +137,11 @@ export const mockStore = {
     if (!existing) state.approvals.push(approval);
     notify();
   },
-  updateApproval: (approvalId: string, status: Approval['status']) => {
+  updateApproval: (approvalId: string, status: Approval['status'], meta?: Partial<Approval>) => {
     const approval = state.approvals.find((a) => a.id === approvalId);
     if (approval) {
       approval.status = status;
+      if (meta) Object.assign(approval, meta);
       notify();
     }
   },
@@ -158,6 +163,13 @@ export const mockStore = {
   addTask: (task: Task) => {
     state.tasks.push(task);
     notify();
+  },
+  updateLead: (leadId: string, updates: Partial<Lead>) => {
+    const lead = state.leads.find((l) => l.id === leadId);
+    if (lead) {
+      Object.assign(lead, updates);
+      notify();
+    }
   },
   updateLeadStatus: (leadId: string, status: string) => {
     const lead = state.leads.find((l) => l.id === leadId);
