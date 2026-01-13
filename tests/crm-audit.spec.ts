@@ -1,74 +1,78 @@
 import { test, expect } from '@playwright/test';
+import path from 'path';
 
-test.describe('Autonomous CRM Audit', () => {
-
-  // Test A: The Chat (Brain)
-  test('Command Center Response', async ({ page }) => {
-    await page.goto('/');
-    
-    // Check if we are in Mock Mode (Header presence or user state, simplified check)
-    await expect(page).toHaveTitle(/Chitragupta/);
-
-    const input = page.locator('input[placeholder*="Draft a LinkedIn post"]');
-    await input.fill('Status check');
-    await page.locator('button:has-text("Send")').click();
-
-    // Verify "Thinking..." indicator or response
-    // The UI shows "Thinking..." immediately
-    const thinking = page.locator('text=Thinking...');
-    await expect(thinking).toBeVisible();
-    
-    // Note: We won't wait for actual AI response in this mock auth audit unless backend is also mocked or live.
-    // Ideally we assume the backend is reachable or we just test the frontend state change.
-  });
-
-  // Test B: The Pipeline (Muscle)
-  test('Pipeline Drag and Drop', async ({ page }) => {
-    await page.goto('/pipeline');
-
-    // Wait for leads to load (or Mock seed if not connected to live)
-    // Since we are checking functionality, we might need to rely on the "New Leads" column being present.
-    await expect(page.locator('h1')).toContainText('Deal Pipeline');
-    
-    // NOTE: Drag and Drop in Playwright with dnd-kit can be tricky.
-    // We will verify the columns exist. Actual DnD might require accessibility steps.
-    const newCol = page.locator('text=New Leads');
-    const qualifiedCol = page.locator('text=Qualified');
-    
-    await expect(newCol).toBeVisible();
-    await expect(qualifiedCol).toBeVisible();
-
-    // Ideally we would mock the data state to ensure a card exists to drag.
-  });
-
-  // Test C: The Detail View (Drill Down)
-  test('Lead Detail Drill Down', async ({ page }) => {
-    // We might need to go to inbox to find a link or use a direct ID if we know it.
-    // For this audit, let's try to find a "View" link in the Inbox or Pipeline.
-    // Assuming we have at least one lead from the seed data.
-    
+test.describe('Outcome MVP flows', () => {
+  test('CSV import -> WhatsApp approval -> timeline updated', async ({ page }) => {
     await page.goto('/inbox');
-    
-    // Wait for the table to populate
-    const row = page.locator('table tbody tr').first();
-    // If no leads, this test might fail.
-    // But we seeded the DB in Phase F, so it SHOULD be okay if connected to project.
-    
-    // Checking for "Active Leads" count tag
-    await expect(page.locator('text=Active Leads')).toBeVisible();
-    
-    // Since rows are not links primarily, let's click the name or check structure.
-    // The Inbox UI doesn't explicitly link "View" in the code I wrote (it was just a table).
-    // Wait, the LeadCard in Pipeline HAS a view link.
-    
-    await page.goto('/pipeline');
-    // Find the first "View" link
-    const viewLink = page.locator('text=View').first();
-    if (await viewLink.isVisible()) {
-        await viewLink.click();
-        await expect(page).toHaveURL(/\/lead\//);
-        await expect(page.locator('button:has-text("Draft Quote")')).toBeVisible();
-    }
+
+    const filePath = path.resolve(__dirname, 'fixtures/indiamart.csv');
+    await page.setInputFiles('input[type="file"]', filePath);
+
+    await page.getByRole('button', { name: 'Import CSV' }).click();
+    await expect(page.getByText('Imported 1 rows')).toBeVisible();
+
+    await page.getByRole('link', { name: 'Open' }).first().click();
+    await page.waitForURL(/\/lead\//);
+    const leadUrl = page.url();
+
+    page.once('dialog', (dialog) => dialog.accept('Hello! Thanks for your enquiry.'));
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: /Draft WhatsApp/i }).click();
+
+    await page.goto('/approvals');
+    await page.getByRole('button', { name: /Approve & Send/i }).first().click();
+    await expect(page.getByText('Done.')).toBeVisible();
+
+    await page.goto(leadUrl);
+    await expect(page.getByText('Hello! Thanks for your enquiry.')).toBeVisible();
   });
 
+  test('Manual intake -> follow-up task created', async ({ page }) => {
+    await page.goto('/inbox');
+
+    await page.locator('label:has-text("Source") select').selectOption('instagram');
+    await page.locator('label:has-text("Name") input').fill('Maya');
+    await page.locator('label:has-text("Phone") input').fill('9000000000');
+    await page.locator('label:has-text("Email") input').fill('maya@example.com');
+    await page.locator('textarea[placeholder*="Paste DM"]').fill('Interested in your catalog.');
+
+    await page.getByRole('button', { name: 'Save Intake' }).click();
+    await expect(page.getByText('Saved. Follow-up task created.')).toBeVisible();
+    await expect(page.getByText('Follow-up tasks: 1')).toBeVisible();
+  });
+
+  test('Quote approval updates lead status', async ({ page }) => {
+    await page.goto('/inbox');
+
+    await page.locator('label:has-text("Name") input').fill('Raj');
+    await page.locator('label:has-text("Phone") input').fill('9111111111');
+    await page.locator('label:has-text("Email") input').fill('raj@example.com');
+    await page.locator('textarea[placeholder*="Paste DM"]').fill('Need a quote for pumps.');
+
+    await page.getByRole('button', { name: 'Save Intake' }).click();
+    await expect(page.getByText('Saved. Follow-up task created.')).toBeVisible();
+
+    await page.getByRole('link', { name: 'Open' }).first().click();
+    await page.waitForURL(/\/lead\//);
+    const leadUrl = page.url();
+
+    const responses = ['Quote for Raj', 'Pump Model X', '2', '1500'];
+    page.on('dialog', (dialog) => {
+      if (dialog.type() === 'prompt') {
+        const response = responses.shift();
+        dialog.accept(response || '');
+        return;
+      }
+      dialog.accept();
+    });
+
+    await page.getByRole('button', { name: /Draft Quote/i }).click();
+
+    await page.goto('/approvals');
+    await page.getByRole('button', { name: /Approve & Send/i }).first().click();
+    await expect(page.getByText('Done.')).toBeVisible();
+
+    await page.goto(leadUrl);
+    await expect(page.getByText('quoted')).toBeVisible();
+  });
 });
