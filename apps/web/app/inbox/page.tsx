@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { collection, doc, getDocs, increment, onSnapshot, orderBy, query, setDoc, updateDoc, where } from 'firebase/firestore';
 import { getAuth, getIdTokenResult, onAuthStateChanged } from 'firebase/auth';
-import { db, app } from '../../lib/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { db, app, functions } from '../../lib/firebase';
 
 type EnquiryItem = {
   id: string;
@@ -106,6 +107,7 @@ export default function InboxPage() {
   const [manualUsername, setManualUsername] = useState('');
   const [importStatus, setImportStatus] = useState('');
   const [manualStatus, setManualStatus] = useState('');
+  const [agentStatus, setAgentStatus] = useState('');
   const [isDirector, setIsDirector] = useState(false);
 
   useEffect(() => {
@@ -352,6 +354,33 @@ export default function InboxPage() {
     });
   };
 
+  const runAgent = async (item: EnquiryItem) => {
+    if (!isDirector) {
+      setAgentStatus('Access denied. Director permissions required.');
+      return;
+    }
+    if (!item.leadId) {
+      setAgentStatus('Missing lead ID for this enquiry.');
+      return;
+    }
+    try {
+      setAgentStatus('Running agent...');
+      const agent = httpsCallable(functions, 'nextBestAction');
+      const draft = await agent({ content: item.content, source: item.source });
+      const data = draft.data as { reply?: string; confidence?: number; reasons?: string[] };
+      const reply = data.reply || 'Thanks for reaching out. Could you share more details?';
+      const confidence = data.confidence ?? 0;
+
+      const createDraft = httpsCallable(functions, 'createWhatsappDraft');
+      await createDraft({ leadId: item.leadId, message: reply });
+
+      setAgentStatus(`Draft created (confidence ${(confidence * 100).toFixed(0)}%).`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      setAgentStatus(`Agent error: ${message}`);
+    }
+  };
+
   const getSlaBadge = (createdAt: string) => {
     const ageMinutes = (Date.now() - new Date(createdAt).getTime()) / 60000;
     if (ageMinutes > 120) return { label: 'SLA 2h+', className: 'bg-red-100 text-red-700' };
@@ -370,6 +399,8 @@ export default function InboxPage() {
           {enquiries.length} Untriaged
         </span>
       </div>
+
+      {agentStatus && <p className="text-sm text-gray-600">{agentStatus}</p>}
 
       <section className="bg-white rounded-lg shadow border border-gray-200 p-6">
         <h2 className="text-xl font-semibold mb-4">Zero Leakage Queue</h2>
@@ -392,13 +423,22 @@ export default function InboxPage() {
                       {item.contact.name || 'Unknown'} · {item.contact.phone || 'No phone'} · {item.contact.email || 'No email'}
                     </p>
                   </div>
-                  <button
-                    disabled={!isDirector}
-                    onClick={() => markTriaged(item.id)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    Mark Triaged
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      disabled={!isDirector}
+                      onClick={() => runAgent(item)}
+                      className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50"
+                    >
+                      Run Agent
+                    </button>
+                    <button
+                      disabled={!isDirector}
+                      onClick={() => markTriaged(item.id)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      Mark Triaged
+                    </button>
+                  </div>
                 </div>
               );
             })}

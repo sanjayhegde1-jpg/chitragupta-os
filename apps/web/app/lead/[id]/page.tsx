@@ -150,6 +150,21 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
           </button>
           <button
             onClick={async () => {
+              const input = prompt('Paste latest enquiry text for agent:');
+              if (!input) return;
+              const agent = httpsCallable(functions, 'nextBestAction');
+              const res = await agent({ content: input, source: lead.source || 'manual' });
+              const data = res.data as { reply?: string; confidence?: number };
+              const reply = data.reply || 'Thanks for reaching out. Could you share more details?';
+              await httpsCallable(functions, 'createWhatsappDraft')({ leadId: lead.id, message: reply });
+              alert(`Agent draft created (confidence ${(data.confidence ?? 0) * 100}%).`);
+            }}
+            className="w-full py-2 px-4 bg-purple-600 text-white rounded hover:bg-purple-700 font-medium"
+          >
+            Run Agent
+          </button>
+          <button
+            onClick={async () => {
               const title = prompt('Quote title:', `Quote for ${lead.name || 'Customer'}`);
               if (!title) return;
               const itemTitle = prompt('Item description:', 'Product');
