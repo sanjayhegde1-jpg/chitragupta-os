@@ -4,8 +4,15 @@ import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 
+type ApprovalItem = {
+  id: string;
+  type?: string;
+  platform?: string;
+  content?: string;
+};
+
 export default function ApprovalsPage() {
-  const [approvals, setApprovals] = useState<any[]>([]);
+  const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
 
   useEffect(() => {
     // Listen for pending approvals
@@ -14,7 +21,12 @@ export default function ApprovalsPage() {
     const q = query(collection(db, 'approvals'), where('status', '==', 'pending'));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setApprovals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setApprovals(
+        snapshot.docs.map((doc) => {
+          const data = doc.data() as Partial<ApprovalItem>;
+          return { id: doc.id, ...data };
+        })
+      );
     });
 
     return () => unsubscribe();
@@ -45,7 +57,7 @@ export default function ApprovalsPage() {
                <h3 className="font-semibold text-lg">{item.type || 'Action Request'}</h3>
                <p className="text-gray-600">Context: {item.platform}</p>
                <div className="mt-2 p-3 bg-gray-50 rounded text-sm italic border">
-                   "{item.content}"
+                   &quot;{item.content}&quot;
                </div>
              </div>
              <div className="space-x-4 flex">

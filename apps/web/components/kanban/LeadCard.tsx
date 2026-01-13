@@ -4,7 +4,15 @@ import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import Link from 'next/link';
 
-export function LeadCard({ lead }: { lead: any }) {
+export type LeadCardData = {
+  id: string;
+  name?: string;
+  email?: string;
+  source?: string;
+  last_event_at?: string;
+};
+
+export function LeadCard({ lead }: { lead: LeadCardData }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: lead.id,
   });

@@ -1,9 +1,9 @@
 'use client';
 
 import { useDroppable } from '@dnd-kit/core';
-import { LeadCard } from './LeadCard';
+import { LeadCard, type LeadCardData } from './LeadCard';
 
-export function KanbanColumn({ id, title, leads }: { id: string, title: string, leads: any[] }) {
+export function KanbanColumn({ id, title, leads }: { id: string; title: string; leads: LeadCardData[] }) {
   const { setNodeRef } = useDroppable({
     id: id,
   });

@@ -6,6 +6,15 @@ import { KanbanColumn } from '../../components/kanban/KanbanColumn';
 import { collection, query, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 
+type LeadItem = {
+  id: string;
+  status?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  source?: string;
+};
+
 const COLUMNS = [
   { id: 'new', title: 'New Leads' },
   { id: 'qualified', title: 'Qualified' },
@@ -15,7 +24,7 @@ const COLUMNS = [
 ];
 
 export default function PipelinePage() {
-  const [leads, setLeads] = useState<any[]>([]);
+  const [leads, setLeads] = useState<LeadItem[]>([]);
 
   useEffect(() => {
     // Subscribe to all leads

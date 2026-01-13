@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../lib/firebase';
 import Link from 'next/link';
+import { functions } from '../lib/firebase';
 
 export default function Home() {
   const [query, setQuery] = useState('');
@@ -106,6 +106,10 @@ export default function Home() {
         <Link href="/settings" className="p-6 bg-white rounded shadow hover:shadow-lg transition cursor-pointer border border-gray-100">
           <h3 className="text-xl font-bold mb-2 text-gray-800">Settings</h3>
           <p className="text-sm text-gray-500">Configure connectors.</p>
+        </Link>
+        <Link href="/templates" className="p-6 bg-white rounded shadow hover:shadow-lg transition cursor-pointer border border-gray-100 col-span-1 md:col-span-3 lg:col-span-1">
+          <h3 className="text-xl font-bold mb-2 text-green-600">Templates</h3>
+          <p className="text-sm text-gray-500">WhatsApp message presets.</p>
         </Link>
       </div>
     </main>

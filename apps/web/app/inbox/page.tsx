@@ -3,10 +3,18 @@
 import { useEffect, useState } from 'react';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Lead } from '@chitragupta/shared'; // Or local type if shared not configured
+type LeadRow = {
+  id: string;
+  name?: string;
+  email?: string;
+  source?: string;
+  status?: string;
+  phone?: string;
+  createdAt?: string;
+};
 
 export default function InboxPage() {
-  const [leads, setLeads] = useState<any[]>([]);
+  const [leads, setLeads] = useState<LeadRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

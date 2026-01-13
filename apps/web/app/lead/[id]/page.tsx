@@ -5,8 +5,18 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { LeadTimeline } from '../../../components/crm/LeadTimeline'; // Correct path
 
+type LeadRecord = {
+  id: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  status?: string;
+  source?: string;
+  notes?: string;
+};
+
 export default function LeadDetailPage({ params }: { params: { id: string } }) {
-  const [lead, setLead] = useState<any>(null);
+  const [lead, setLead] = useState<LeadRecord | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -15,7 +25,8 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
             const docRef = doc(db, 'leads', params.id);
             const docSnap = await getDoc(docRef);
             if (docSnap.exists()) {
-                setLead({ id: docSnap.id, ...docSnap.data() });
+                const data = docSnap.data() as Omit<LeadRecord, 'id'>;
+                setLead({ id: docSnap.id, ...data });
             }
         } catch (error) {
             console.error("Error fetching lead:", error);
@@ -71,7 +82,35 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
       <div className="w-1/4 bg-white rounded-lg shadow p-6 h-full border border-gray-200">
           <h2 className="font-bold text-gray-700 mb-4">Quick Actions</h2>
           <div className="space-y-3">
-              <button className="w-full py-2 px-4 bg-green-600 text-white rounded hover:bg-green-700 font-medium">
+              <button 
+                  onClick={async () => {
+                      // MVP: Send a default template
+                      const { httpsCallable } = await import('firebase/functions');
+                      const { functions } = await import('../../../lib/firebase');
+                      const send = httpsCallable(functions, 'whatsappSendTemplate');
+                      
+                      const tpl = prompt("Enter Template Name:", "welcome_message_v1");
+                      if (!tpl) return;
+
+                      try {
+                        alert("Sending...");
+                        const res = await send({ 
+                           leadId: lead.id, 
+                           templateName: tpl,
+                           variables: { "1": lead.name || "Customer" }
+                        });
+                        const messageId = (res.data as { messageId?: string } | undefined)?.messageId;
+                        alert(`Sent! ID: ${messageId ?? 'unknown'}`);
+                      } catch (error) {
+                        const message = error instanceof Error ? error.message : 'Unknown error';
+                        alert("Error: " + message);
+                      }
+                  }}
+                  className="w-full py-2 px-4 bg-green-600 text-white rounded hover:bg-green-700 font-medium flex items-center justify-center gap-2"
+              >
+                  <span>💬</span> Send WhatsApp
+              </button>
+              <button className="w-full py-2 px-4 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 font-medium">
                   Draft Quote (AI)
               </button>
               <button className="w-full py-2 px-4 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 font-medium">

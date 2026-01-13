@@ -11,6 +11,7 @@ export function LeadTimeline({ leadId }: { leadId: string }) {
     <div className="flex flex-col h-full bg-white rounded-lg shadow overflow-hidden border border-gray-200">
       <div className="bg-gray-50 p-4 border-b">
         <h3 className="font-bold text-gray-700">Communication History</h3>
+        <p className="text-xs text-gray-400 mt-1">Lead ID: {leadId}</p>
       </div>
       <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50">
         {messages.map((msg) => (
