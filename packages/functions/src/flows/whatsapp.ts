@@ -1,64 +1,137 @@
 import { onFlow } from '@genkit-ai/firebase/functions';
 import { z } from 'zod';
 import * as admin from 'firebase-admin';
-import { firebaseAuth } from '../lib/auth';
+import { directorAuth } from '../lib/auth';
+import { sendWhatsAppMessage } from '../lib/whatsappProvider';
 
-// Mock WhatsApp API
-export const whatsappSendTemplate = onFlow(
+const DraftSchema = z.object({
+  leadId: z.string(),
+  message: z.string(),
+});
+
+export const createWhatsappDraft = onFlow(
   {
-    name: 'whatsappSendTemplate',
-    inputSchema: z.object({
-        leadId: z.string(),
-        templateName: z.string(),
-        language: z.string().default('en_US'),
-        variables: z.record(z.string()).optional()
-    }),
-    outputSchema: z.object({ success: z.boolean(), messageId: z.string().optional(), error: z.string().optional() }),
-    authPolicy: firebaseAuth,
+    name: 'createWhatsappDraft',
+    inputSchema: DraftSchema,
+    outputSchema: z.object({ approvalId: z.string(), status: z.string() }),
+    authPolicy: directorAuth,
   },
-  async ({ leadId, templateName, language, variables }) => {
+  async ({ leadId, message }) => {
     const db = admin.firestore();
-    
-    // 1. Fetch Lead
-    const leadSnap = await db.collection('leads').doc(leadId).get();
+    const approvalId = `apv_${Date.now()}`;
+
+    await db.collection('approvals').doc(approvalId).set({
+      id: approvalId,
+      kind: 'whatsapp',
+      leadId,
+      draft: { message },
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    });
+
+    return { approvalId, status: 'PENDING' };
+  }
+);
+
+export const approveWhatsappDraft = onFlow(
+  {
+    name: 'approveWhatsappDraft',
+    inputSchema: z.object({ approvalId: z.string(), decision: z.enum(['approved', 'rejected']) }),
+    outputSchema: z.object({ status: z.string(), messageId: z.string().optional(), error: z.string().optional() }),
+    authPolicy: directorAuth,
+  },
+  async ({ approvalId, decision }) => {
+    const db = admin.firestore();
+    const approvalRef = db.collection('approvals').doc(approvalId);
+    const approvalSnap = await approvalRef.get();
+
+    if (!approvalSnap.exists) {
+      return { status: 'NOT_FOUND', error: 'Approval not found' };
+    }
+
+    const approval = approvalSnap.data();
+    if (!approval) {
+      return { status: 'NOT_FOUND', error: 'Approval not found' };
+    }
+
+    if (decision === 'rejected') {
+      await approvalRef.set(
+        {
+          status: 'rejected',
+          decidedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+      return { status: 'REJECTED' };
+    }
+
+    const leadSnap = await db.collection('leads').doc(approval.leadId).get();
     if (!leadSnap.exists) {
-        return { success: false, error: "Lead not found" };
+      return { status: 'FAILED', error: 'Lead not found' };
     }
+
     const lead = leadSnap.data();
-    const phone = lead?.phone;
-
-    if (!phone) {
-         return { success: false, error: "Lead has no phone number" };
+    const to = lead?.whatsappNumber || lead?.phone;
+    if (!to) {
+      await approvalRef.set(
+        {
+          status: 'rejected',
+          decidedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+      return { status: 'FAILED', error: 'No WhatsApp number' };
     }
 
-    console.log(`[WhatsApp] Sending template '${templateName}' to ${phone} (${leadId}) with vars:`, variables);
-
-    // 2. Mock API Call
-    // Simulate latency
-    await new Promise(r => setTimeout(r, 500));
-    
-    const messageId = `wam_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-    
-    // 3. Log to History
-    try {
-        await db.collection('leads').doc(leadId).collection('messages').add({
-            content: `[TEMPLATE: ${templateName}]`, // Placeholder content
-            type: 'template',
-            direction: 'outbound',
-            status: 'sent',
-            metadata: {
-                templateName,
-                variables,
-                integration_id: messageId
-            },
-            created_at: new Date().toISOString(),
-            source: 'whatsapp'
-        });
-    } catch (e) {
-        console.error("Failed to log message:", e);
-        // Don't fail the flow if just logging fails, but vital for history
+    if (lead?.consentStatus !== 'opt_in') {
+      await approvalRef.set(
+        {
+          status: 'rejected',
+          decidedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+      return { status: 'FAILED', error: 'WhatsApp consent missing' };
     }
 
-    return { success: true, messageId };
+    const result = await sendWhatsAppMessage({ to, message: approval.draft?.message || '' });
+    if (!result.success) {
+      await approvalRef.set(
+        {
+          status: 'rejected',
+          decidedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+      return { status: 'FAILED', error: result.error || 'Send failed' };
+    }
+
+    await approvalRef.set(
+      {
+        status: 'approved',
+        decidedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+
+    const messageRef = db.collection('leads').doc(approval.leadId).collection('messages').doc();
+    await messageRef.set({
+      id: messageRef.id,
+      direction: 'outbound',
+      channel: 'whatsapp',
+      content: approval.draft?.message || '',
+      status: 'sent',
+      createdAt: new Date().toISOString(),
+      metadata: { provider: result.provider, messageId: result.messageId },
+    });
+
+    await db.collection('leads').doc(approval.leadId).set(
+      {
+        lastContactedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+
+    return { status: 'SENT', messageId: result.messageId };
   }
 );

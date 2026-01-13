@@ -87,23 +87,22 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
                       // MVP: Send a default template
                       const { httpsCallable } = await import('firebase/functions');
                       const { functions } = await import('../../../lib/firebase');
-                      const send = httpsCallable(functions, 'whatsappSendTemplate');
-                      
-                      const tpl = prompt("Enter Template Name:", "welcome_message_v1");
-                      if (!tpl) return;
+                      const createDraft = httpsCallable(functions, 'createWhatsappDraft');
+
+                      const message = prompt("Enter WhatsApp message:", "Hello! Thanks for your enquiry.");
+                      if (!message) return;
 
                       try {
-                        alert("Sending...");
-                        const res = await send({ 
-                           leadId: lead.id, 
-                           templateName: tpl,
-                           variables: { "1": lead.name || "Customer" }
+                        alert("Creating approval...");
+                        const res = await createDraft({
+                          leadId: lead.id,
+                          message,
                         });
-                        const messageId = (res.data as { messageId?: string } | undefined)?.messageId;
-                        alert(`Sent! ID: ${messageId ?? 'unknown'}`);
+                        const approvalId = (res.data as { approvalId?: string } | undefined)?.approvalId;
+                        alert(`Draft created. Approval ID: ${approvalId ?? 'unknown'}`);
                       } catch (error) {
-                        const message = error instanceof Error ? error.message : 'Unknown error';
-                        alert("Error: " + message);
+                        const messageText = error instanceof Error ? error.message : 'Unknown error';
+                        alert("Error: " + messageText);
                       }
                   }}
                   className="w-full py-2 px-4 bg-green-600 text-white rounded hover:bg-green-700 font-medium flex items-center justify-center gap-2"

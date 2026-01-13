@@ -58,6 +58,18 @@ export const firebaseAuth: FunctionFlowAuth<any> = {
   },
 };
 
+export const directorAuth: FunctionFlowAuth<any> = {
+  provider: withAuthContext,
+  policy: (auth) => {
+    if (!auth) {
+      throw new Error('Unauthorized');
+    }
+    if (!(auth as { director?: boolean }).director) {
+      throw new Error('Director access required');
+    }
+  },
+};
+
 export const verifyRequestAuth = async (req: Request) => {
   if (isBypassEnabled) {
     return { uid: 'dev-bypass', bypass: true };

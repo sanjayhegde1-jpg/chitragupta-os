@@ -15,7 +15,7 @@ export { socialListener } from './flows/listener';
 export { executive } from './flows/executive';
 export { indiamartPoller } from './flows/indiamart';
 export { crmIngest } from './flows/crm';
-export { whatsappSendTemplate } from './flows/whatsapp';
+export { createWhatsappDraft, approveWhatsappDraft } from './flows/whatsapp';
 export { getDashboardMetrics } from './flows/metrics';
 
 // Verification Endpoint
