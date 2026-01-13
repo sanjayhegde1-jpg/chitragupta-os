@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { httpsCallable } from 'firebase/functions';
@@ -54,7 +55,10 @@ const generateMinimalPdf = (title: string, lines: string[]) => {
   return new TextEncoder().encode(parts.join(''));
 };
 
-export default function LeadDetailPage({ params }: { params: { id: string } }) {
+export default function LeadDetailPage() {
+  const params = useParams();
+  const leadIdParam = Array.isArray(params.id) ? params.id[0] : params.id;
+  const leadId = typeof leadIdParam === 'string' ? leadIdParam : '';
   const isTestMode = process.env.NEXT_PUBLIC_TEST_MODE === 'true';
   const [lead, setLead] = useState<LeadRecord | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,7 +66,27 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
   useEffect(() => {
     if (isTestMode) {
       const update = () => {
-        const found = mockStore.getLeads().find((item) => item.id === params.id) as LeadRecord | undefined;
+        const found = mockStore.getLeads().find((item) => item.id === leadId) as LeadRecord | undefined;
+        if (!found) {
+          const fallback: LeadRecord = {
+            id: leadId,
+            name: 'Test Lead',
+            source: 'manual',
+            status: 'new',
+          };
+          mockStore.addLead({
+            id: fallback.id,
+            name: fallback.name,
+            source: fallback.source,
+            status: fallback.status,
+            consentStatus: 'unknown',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+          setLead(fallback);
+          setLoading(false);
+          return;
+        }
         setLead(found || null);
         setLoading(false);
       };
@@ -72,7 +96,11 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
 
     const fetchLead = async () => {
       try {
-        const docRef = doc(db, 'leads', params.id);
+        if (!leadId) {
+          setLead(null);
+          return;
+        }
+        const docRef = doc(db, 'leads', leadId);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data() as Omit<LeadRecord, 'id'>;
@@ -85,7 +113,7 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
       }
     };
     fetchLead();
-  }, [params.id, isTestMode]);
+  }, [leadId, isTestMode]);
 
   if (loading) return <div className="p-8">Loading Lead...</div>;
   if (!lead) return <div className="p-8">Lead not found.</div>;

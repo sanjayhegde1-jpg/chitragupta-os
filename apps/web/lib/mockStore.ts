@@ -68,6 +68,8 @@ type Task = {
 type Listener = () => void;
 
 const listeners = new Set<Listener>();
+const storageKey = 'chitragupta_mock_store_v1';
+const isTestMode = typeof window !== 'undefined' && process.env.NEXT_PUBLIC_TEST_MODE === 'true';
 
 const state = {
   enquiries: [] as Enquiry[],
@@ -78,7 +80,31 @@ const state = {
   tasks: [] as Task[],
 };
 
-const notify = () => listeners.forEach((fn) => fn());
+if (isTestMode) {
+  try {
+    const raw = window.sessionStorage.getItem(storageKey);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<typeof state>;
+      Object.assign(state, parsed);
+    }
+  } catch (error) {
+    console.warn('[mockStore] Failed to load session state', error);
+  }
+}
+
+const persist = () => {
+  if (!isTestMode) return;
+  try {
+    window.sessionStorage.setItem(storageKey, JSON.stringify(state));
+  } catch (error) {
+    console.warn('[mockStore] Failed to persist session state', error);
+  }
+};
+
+const notify = () => {
+  persist();
+  listeners.forEach((fn) => fn());
+};
 
 export const mockStore = {
   subscribe: (fn: Listener) => {

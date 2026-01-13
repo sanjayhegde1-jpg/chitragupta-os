@@ -11,12 +11,19 @@ test.describe('Outcome MVP flows', () => {
     await page.getByRole('button', { name: 'Import CSV' }).click();
     await expect(page.getByText('Imported 1 rows')).toBeVisible();
 
+    await expect(page.getByRole('link', { name: 'Open' }).first()).toBeVisible();
     await page.getByRole('link', { name: 'Open' }).first().click();
     await page.waitForURL(/\/lead\//);
     const leadUrl = page.url();
 
-    page.once('dialog', (dialog) => dialog.accept('Hello! Thanks for your enquiry.'));
-    page.once('dialog', (dialog) => dialog.accept());
+    const dialogReplies = ['Hello! Thanks for your enquiry.'];
+    page.on('dialog', (dialog) => {
+      if (dialog.type() === 'prompt') {
+        dialog.accept(dialogReplies.shift() || '');
+        return;
+      }
+      dialog.accept();
+    });
     await page.getByRole('button', { name: /Draft WhatsApp/i }).click();
 
     await page.goto('/approvals');
@@ -30,10 +37,10 @@ test.describe('Outcome MVP flows', () => {
   test('Manual intake -> follow-up task created', async ({ page }) => {
     await page.goto('/inbox');
 
-    await page.locator('label:has-text("Source") select').selectOption('instagram');
-    await page.locator('label:has-text("Name") input').fill('Maya');
-    await page.locator('label:has-text("Phone") input').fill('9000000000');
-    await page.locator('label:has-text("Email") input').fill('maya@example.com');
+    await page.getByLabel('Source').selectOption('instagram');
+    await page.getByLabel('Name', { exact: true }).fill('Maya');
+    await page.getByLabel('Phone', { exact: true }).fill('9000000000');
+    await page.getByLabel('Email', { exact: true }).fill('maya@example.com');
     await page.locator('textarea[placeholder*="Paste DM"]').fill('Interested in your catalog.');
 
     await page.getByRole('button', { name: 'Save Intake' }).click();
@@ -44,9 +51,9 @@ test.describe('Outcome MVP flows', () => {
   test('Quote approval updates lead status', async ({ page }) => {
     await page.goto('/inbox');
 
-    await page.locator('label:has-text("Name") input').fill('Raj');
-    await page.locator('label:has-text("Phone") input').fill('9111111111');
-    await page.locator('label:has-text("Email") input').fill('raj@example.com');
+    await page.getByLabel('Name', { exact: true }).fill('Raj');
+    await page.getByLabel('Phone', { exact: true }).fill('9111111111');
+    await page.getByLabel('Email', { exact: true }).fill('raj@example.com');
     await page.locator('textarea[placeholder*="Paste DM"]').fill('Need a quote for pumps.');
 
     await page.getByRole('button', { name: 'Save Intake' }).click();
