@@ -4,6 +4,18 @@
 - Node.js 20.x (recommended). If you are on another version, run `npm run preflight` and read the warning.
 - Firebase CLI authenticated (`firebase login`) and correct project configured in `.firebaserc`.
 
+## Windows Node.js 20 install
+Option 1 (nvm-windows):
+1) Install nvm-windows: https://github.com/coreybutler/nvm-windows/releases
+2) Open a new terminal and run:
+   - `nvm install 20.12.2`
+   - `nvm use 20.12.2`
+   - `node -v` (verify it shows v20.x)
+
+Option 2 (direct installer):
+1) Download Node.js 20.x LTS from https://nodejs.org/
+2) Install and verify with `node -v`
+
 ## Windows (PowerShell) note
 PowerShell may block `npm` due to execution policy. Use `npm.cmd` instead:
 - `npm.cmd ci`
