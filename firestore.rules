@@ -6,10 +6,8 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Minimal allowlist for elevated config access.
-    // Replace with custom claims or RBAC when available.
     function isDirector() {
-      return isSignedIn() && request.auth.token.email == "director@chitragupta.os";
+      return isSignedIn() && request.auth.token.director == true;
     }
 
     match /system_config/{docId} {

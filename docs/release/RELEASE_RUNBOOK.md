@@ -38,8 +38,18 @@ Optional (if you prefer `npm` directly):
 - In production, keep `DEV_BYPASS_AUTH` unset or `false`.
 
 ### Firestore rules allowlist
-- `firestore.rules` includes a minimal director allowlist based on email.
-- Update `director@chitragupta.os` to the correct admin email or replace with custom claims.
+- `firestore.rules` requires `request.auth.token.director == true` for `system_config`.
+
+### Director claim setup
+Prerequisites:
+- Service account JSON with Admin SDK privileges.
+- `GOOGLE_APPLICATION_CREDENTIALS` set to the JSON path.
+
+Set or remove director claim:
+```bash
+node scripts/set-director-claim.cjs --email admin@example.com --value true
+node scripts/set-director-claim.cjs --email admin@example.com --value false
+```
 
 ### Secrets
 - Functions rely on Firebase secrets or environment variables.
