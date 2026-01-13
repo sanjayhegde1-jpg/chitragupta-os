@@ -6,8 +6,15 @@ if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 
+const isEmulator =
+  process.env.FUNCTIONS_EMULATOR === 'true' ||
+  !!process.env.FIREBASE_AUTH_EMULATOR_HOST ||
+  !!process.env.FIRESTORE_EMULATOR_HOST;
+
 const isBypassEnabled =
-  process.env.DEV_BYPASS_AUTH === 'true' && process.env.NODE_ENV !== 'production';
+  process.env.DEV_BYPASS_AUTH === 'true' &&
+  process.env.NODE_ENV !== 'production' &&
+  isEmulator;
 
 type AuthedRequest = Request & { auth?: unknown };
 

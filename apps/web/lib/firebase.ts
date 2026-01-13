@@ -13,21 +13,25 @@ const requiredEnv = [
 ];
 
 const missingEnv = requiredEnv.filter((key) => !process.env[key]);
+const allowTestMode =
+  process.env.NEXT_PUBLIC_TEST_MODE === 'true' || process.env.NODE_ENV === 'test';
 
-if (missingEnv.length > 0) {
-  throw new Error(
+if (missingEnv.length > 0 && !allowTestMode) {
+  const message =
     `[firebase] Missing environment variables: ${missingEnv.join(", ")}. ` +
-      "Create apps/web/.env.local from apps/web/.env.example."
-  );
+    "Create apps/web/.env.local from apps/web/.env.example.";
+  if (typeof window !== 'undefined') {
+    throw new Error(message);
+  }
 }
 
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY as string,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN as string,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID as string,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET as string,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID as string,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID as string,
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'test-api-key',
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'test.firebaseapp.com',
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'test-project',
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'test.appspot.com',
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '0000000000',
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:0000000000:web:test',
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 

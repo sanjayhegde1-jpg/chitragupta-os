@@ -34,8 +34,8 @@ Optional (if you prefer `npm` directly):
 
 ### Functions auth
 - Functions now require a verified Firebase ID token by default.
-- DEV-only bypass: set `DEV_BYPASS_AUTH=true` in non-production environments.
-- In production, keep `DEV_BYPASS_AUTH` unset or `false`.
+- DEV-only bypass: set `DEV_BYPASS_AUTH=true` when running emulators.
+- In production, `DEV_BYPASS_AUTH` is rejected by preflight and ignored by Functions.
 
 ### Firestore rules allowlist
 - `firestore.rules` requires `request.auth.token.director == true` for `system_config`.
