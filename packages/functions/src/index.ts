@@ -23,10 +23,10 @@ export {
   crmIngestFlow
 };
 
-import * as functions from 'firebase-functions';
-export const helloChitragupta = functions.https.onRequest((request, response) => {
+import { onRequest } from 'firebase-functions/v2/https';
+
+export const helloChitragupta = onRequest((request, response) => {
   response.send("Chitragupta OS | Genkit Brain Active");
 });
 
-
-// Verification Trigger: Force Backend Re-Deploy (Dependency Override Check) - Attempt 5
+// Verification Trigger: Force Backend Re-Deploy (Region Fix) - Attempt 6
