@@ -58,14 +58,19 @@ export const createQuoteDraft = onFlow(
 export const approveQuoteDraft = onFlow(
   {
     name: 'approveQuoteDraft',
-    inputSchema: z.object({ approvalId: z.string(), decision: z.enum(['approved', 'rejected']) }),
+    inputSchema: z.object({
+      approvalId: z.string(),
+      decision: z.enum(['approved', 'rejected']),
+      decidedBy: z.string().optional(),
+    }),
     outputSchema: z.object({ status: z.string(), error: z.string().optional() }),
     authPolicy: directorAuth,
   },
-  async ({ approvalId, decision }) => {
+  async ({ approvalId, decision, decidedBy }) => {
     const db = admin.firestore();
     const approvalRef = db.collection('approvals').doc(approvalId);
     const approvalSnap = await approvalRef.get();
+    const actor = decidedBy || 'director';
 
     if (!approvalSnap.exists) {
       return { status: 'NOT_FOUND', error: 'Approval not found' };
@@ -78,7 +83,7 @@ export const approveQuoteDraft = onFlow(
 
     if (decision === 'rejected') {
       await approvalRef.set(
-        { status: 'rejected', decidedAt: new Date().toISOString() },
+        { status: 'rejected', decidedAt: new Date().toISOString(), decidedBy: actor, outcome: 'rejected' },
         { merge: true }
       );
       await updateDailyMetrics({ approvalsPending: -1 });
@@ -95,10 +100,18 @@ export const approveQuoteDraft = onFlow(
     const to = lead?.whatsappNumber || lead?.phone;
     if (!to) {
       await updateDailyMetrics({ approvalsPending: -1 });
+      await approvalRef.set(
+        { status: 'rejected', decidedAt: new Date().toISOString(), decidedBy: actor, outcome: 'no_number' },
+        { merge: true }
+      );
       return { status: 'FAILED', error: 'No WhatsApp number' };
     }
     if (lead?.consentStatus !== 'opt_in') {
       await updateDailyMetrics({ approvalsPending: -1 });
+      await approvalRef.set(
+        { status: 'rejected', decidedAt: new Date().toISOString(), decidedBy: actor, outcome: 'missing_consent' },
+        { merge: true }
+      );
       return { status: 'FAILED', error: 'WhatsApp consent missing' };
     }
 
@@ -108,11 +121,15 @@ export const approveQuoteDraft = onFlow(
 
     if (!result.success) {
       await updateDailyMetrics({ approvalsPending: -1 });
+      await approvalRef.set(
+        { status: 'rejected', decidedAt: new Date().toISOString(), decidedBy: actor, outcome: 'send_failed' },
+        { merge: true }
+      );
       return { status: 'FAILED', error: result.error || 'Send failed' };
     }
 
     await approvalRef.set(
-      { status: 'approved', decidedAt: new Date().toISOString() },
+      { status: 'approved', decidedAt: new Date().toISOString(), decidedBy: actor, outcome: 'sent' },
       { merge: true }
     );
     await updateDailyMetrics({ approvalsPending: -1 });

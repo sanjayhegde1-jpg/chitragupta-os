@@ -39,14 +39,19 @@ export const createWhatsappDraft = onFlow(
 export const approveWhatsappDraft = onFlow(
   {
     name: 'approveWhatsappDraft',
-    inputSchema: z.object({ approvalId: z.string(), decision: z.enum(['approved', 'rejected']) }),
+    inputSchema: z.object({
+      approvalId: z.string(),
+      decision: z.enum(['approved', 'rejected']),
+      decidedBy: z.string().optional(),
+    }),
     outputSchema: z.object({ status: z.string(), messageId: z.string().optional(), error: z.string().optional() }),
     authPolicy: directorAuth,
   },
-  async ({ approvalId, decision }) => {
+  async ({ approvalId, decision, decidedBy }) => {
     const db = admin.firestore();
     const approvalRef = db.collection('approvals').doc(approvalId);
     const approvalSnap = await approvalRef.get();
+    const actor = decidedBy || 'director';
 
     if (!approvalSnap.exists) {
       return { status: 'NOT_FOUND', error: 'Approval not found' };
@@ -62,6 +67,8 @@ export const approveWhatsappDraft = onFlow(
         {
           status: 'rejected',
           decidedAt: new Date().toISOString(),
+          decidedBy: actor,
+          outcome: 'rejected',
         },
         { merge: true }
       );
@@ -82,6 +89,8 @@ export const approveWhatsappDraft = onFlow(
         {
           status: 'rejected',
           decidedAt: new Date().toISOString(),
+          decidedBy: actor,
+          outcome: 'no_number',
         },
         { merge: true }
       );
@@ -94,11 +103,52 @@ export const approveWhatsappDraft = onFlow(
         {
           status: 'rejected',
           decidedAt: new Date().toISOString(),
+          decidedBy: actor,
+          outcome: 'missing_consent',
         },
         { merge: true }
       );
       await updateDailyMetrics({ approvalsPending: -1 });
       return { status: 'FAILED', error: 'WhatsApp consent missing' };
+    }
+
+    const configSnap = await db.collection('system_config').doc('whatsapp').get();
+    const config = configSnap.exists ? configSnap.data() : undefined;
+    const maxPerDay = typeof config?.maxPerDay === 'number' ? config?.maxPerDay : 200;
+    const maxPerLeadPerDay = typeof config?.maxPerLeadPerDay === 'number' ? config?.maxPerLeadPerDay : 20;
+    const startOfDay = new Date(new Date().toDateString()).toISOString();
+
+    const totalSnap = await db.collectionGroup('messages')
+      .where('channel', '==', 'whatsapp')
+      .where('direction', '==', 'outbound')
+      .where('createdAt', '>=', startOfDay)
+      .count()
+      .get();
+    const totalCount = totalSnap.data().count;
+
+    const leadMessagesSnap = await db
+      .collection('leads')
+      .doc(approval.leadId)
+      .collection('messages')
+      .where('createdAt', '>=', startOfDay)
+      .get();
+    const leadCount = leadMessagesSnap.docs.filter((docSnap) => {
+      const data = docSnap.data();
+      return data.channel === 'whatsapp' && data.direction === 'outbound';
+    }).length;
+
+    if (totalCount >= maxPerDay || leadCount >= maxPerLeadPerDay) {
+      await approvalRef.set(
+        {
+          status: 'rejected',
+          decidedAt: new Date().toISOString(),
+          decidedBy: actor,
+          outcome: 'rate_limited',
+        },
+        { merge: true }
+      );
+      await updateDailyMetrics({ approvalsPending: -1 });
+      return { status: 'FAILED', error: 'Rate limit exceeded' };
     }
 
     const result = await sendWhatsAppMessage({ to, message: approval.draft?.message || '' });
@@ -107,6 +157,8 @@ export const approveWhatsappDraft = onFlow(
         {
           status: 'rejected',
           decidedAt: new Date().toISOString(),
+          decidedBy: actor,
+          outcome: 'send_failed',
         },
         { merge: true }
       );
@@ -118,6 +170,8 @@ export const approveWhatsappDraft = onFlow(
       {
         status: 'approved',
         decidedAt: new Date().toISOString(),
+        decidedBy: actor,
+        outcome: 'sent',
       },
       { merge: true }
     );

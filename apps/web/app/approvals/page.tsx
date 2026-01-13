@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { db, functions } from '../../lib/firebase';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { app, db, functions } from '../../lib/firebase';
 import { mockStore } from '../../lib/mockStore';
 
 type ApprovalItem = {
@@ -24,6 +25,17 @@ export default function ApprovalsPage() {
   const isTestMode = process.env.NEXT_PUBLIC_TEST_MODE === 'true';
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
   const [status, setStatus] = useState('');
+  const [actor, setActor] = useState('director');
+
+  useEffect(() => {
+    if (isTestMode) return;
+    const auth = getAuth(app);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) return;
+      setActor(user.email || user.uid || 'director');
+    });
+    return () => unsubscribe();
+  }, [isTestMode]);
 
   useEffect(() => {
     if (isTestMode) {
@@ -51,7 +63,11 @@ export default function ApprovalsPage() {
     setStatus('Processing...');
     try {
       if (isTestMode) {
-        mockStore.updateApproval(item.id, decision === 'approved' ? 'approved' : 'rejected');
+        mockStore.updateApproval(item.id, decision === 'approved' ? 'approved' : 'rejected', {
+          decidedAt: new Date().toISOString(),
+          decidedBy: actor,
+          outcome: decision,
+        });
         if (decision === 'approved') {
           mockStore.addMessage({
             id: `msg_${item.id}`,
@@ -69,10 +85,10 @@ export default function ApprovalsPage() {
 
       if (item.kind === 'whatsapp') {
         const approve = httpsCallable(functions, 'approveWhatsappDraft');
-        await approve({ approvalId: item.id, decision });
+        await approve({ approvalId: item.id, decision, decidedBy: actor });
       } else if (item.kind === 'quote') {
         const approve = httpsCallable(functions, 'approveQuoteDraft');
-        await approve({ approvalId: item.id, decision });
+        await approve({ approvalId: item.id, decision, decidedBy: actor });
       } else {
         console.warn('Unknown approval kind', item.kind);
       }
