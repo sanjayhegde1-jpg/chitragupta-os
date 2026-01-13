@@ -16,6 +16,16 @@ Optional (if you prefer `npm` directly):
 - Run PowerShell as Administrator and set: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
 
 ## Environment setup
+### Functions auth
+- Functions now require a verified Firebase ID token by default.
+- DEV-only bypass: set `DEV_BYPASS_AUTH=true` in non-production environments.
+- In production, keep `DEV_BYPASS_AUTH` unset or `false`.
+
+### Firestore rules allowlist
+- `firestore.rules` includes a minimal director allowlist based on email.
+- Update `director@chitragupta.os` to the correct admin email or replace with custom claims.
+
+### Secrets
 - Functions rely on Firebase secrets or environment variables.
 - Required secrets (examples):
   - `WABA_TOKEN`
@@ -40,8 +50,8 @@ npm.cmd run build
 
 ## Firebase deploy
 ```bash
-# Hosting + Functions + Firestore rules + indexes
-firebase deploy --only hosting,functions,firestore
+# Hosting + Functions + Firestore rules + Storage rules + indexes
+firebase deploy --only hosting,functions,firestore,storage
 ```
 
 ## Rollback
