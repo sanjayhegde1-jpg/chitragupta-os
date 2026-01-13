@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions, storage } from '../../../lib/firebase';
@@ -15,6 +15,7 @@ type LeadRecord = {
   email?: string;
   phone?: string;
   whatsappNumber?: string;
+  consentStatus?: string;
   status?: string;
   source?: string;
   notes?: string;
@@ -62,6 +63,9 @@ export default function LeadDetailPage() {
   const isTestMode = process.env.NEXT_PUBLIC_TEST_MODE === 'true';
   const [lead, setLead] = useState<LeadRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const [whatsAppNumber, setWhatsAppNumber] = useState('');
+  const [consentStatus, setConsentStatus] = useState<'unknown' | 'opt_in' | 'opt_out'>('unknown');
+  const [consentStatusNote, setConsentStatusNote] = useState('');
 
   useEffect(() => {
     if (isTestMode) {
@@ -115,6 +119,12 @@ export default function LeadDetailPage() {
     fetchLead();
   }, [leadId, isTestMode]);
 
+  useEffect(() => {
+    if (!lead) return;
+    setWhatsAppNumber(lead.whatsappNumber || lead.phone || '');
+    setConsentStatus((lead.consentStatus as 'unknown' | 'opt_in' | 'opt_out') || 'unknown');
+  }, [lead]);
+
   if (loading) return <div className="p-8">Loading Lead...</div>;
   if (!lead) return <div className="p-8">Lead not found.</div>;
 
@@ -145,6 +155,56 @@ export default function LeadDetailPage() {
         <div className="mb-6">
           <label className="text-xs font-bold text-gray-400 uppercase">Source</label>
           <p className="mt-1 font-semibold capitalize">{lead.source}</p>
+        </div>
+
+        <div className="mb-6">
+          <label className="text-xs font-bold text-gray-400 uppercase">WhatsApp Consent</label>
+          <div className="mt-2 space-y-2">
+            <input
+              value={whatsAppNumber}
+              onChange={(e) => setWhatsAppNumber(e.target.value)}
+              placeholder="WhatsApp number"
+              className="w-full border rounded px-3 py-2 text-sm"
+            />
+            <select
+              value={consentStatus}
+              onChange={(e) => setConsentStatus(e.target.value as 'unknown' | 'opt_in' | 'opt_out')}
+              className="w-full border rounded px-3 py-2 text-sm"
+            >
+              <option value="unknown">Unknown</option>
+              <option value="opt_in">Opted In</option>
+              <option value="opt_out">Opted Out</option>
+            </select>
+            <button
+              onClick={async () => {
+                try {
+                  setConsentStatusNote('Saving...');
+                  if (isTestMode) {
+                    mockStore.updateLead(lead.id, {
+                      whatsappNumber: whatsAppNumber,
+                      consentStatus,
+                      updatedAt: new Date().toISOString(),
+                    });
+                    setConsentStatusNote('Saved.');
+                    return;
+                  }
+                  await updateDoc(doc(db, 'leads', lead.id), {
+                    whatsappNumber: whatsAppNumber,
+                    consentStatus,
+                    updatedAt: new Date().toISOString(),
+                  });
+                  setConsentStatusNote('Saved.');
+                } catch (error) {
+                  const message = error instanceof Error ? error.message : 'Unknown error';
+                  setConsentStatusNote(`Error: ${message}`);
+                }
+              }}
+              className="w-full py-2 px-3 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+            >
+              Save WhatsApp Consent
+            </button>
+            {consentStatusNote && <p className="text-xs text-gray-500">{consentStatusNote}</p>}
+          </div>
         </div>
 
         <div>
@@ -239,11 +299,15 @@ export default function LeadDetailPage() {
               const qty = Number(prompt('Quantity:', '1') || '1');
               const price = Number(prompt('Unit price:', '1000') || '0');
               const total = qty * price;
+              const validityDays = Number(prompt('Validity (days):', '7') || '7');
               const pdfBytes = generateMinimalPdf(title, [
                 `Item: ${itemTitle}`,
                 `Qty: ${qty}`,
                 `Price: ${price}`,
                 `Total: ${total}`,
+                `Validity: ${validityDays} days`,
+                'GST: extra as applicable',
+                'Terms: 50% advance, balance before dispatch',
               ]);
 
               if (isTestMode) {
@@ -261,7 +325,7 @@ export default function LeadDetailPage() {
                   id: `apv_${Date.now()}`,
                   kind: 'quote',
                   leadId: lead.id,
-                  draft: { quoteId, pdfUrl: 'mock://quote.pdf', total },
+                  draft: { quoteId, pdfUrl: 'mock://quote.pdf', total, validityDays },
                   status: 'pending',
                   createdAt: new Date().toISOString(),
                 });
