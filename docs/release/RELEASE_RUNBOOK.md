@@ -28,6 +28,10 @@ Optional (if you prefer `npm` directly):
 - Run PowerShell as Administrator and set: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
 
 ## Environment setup
+### Web app (Next.js)
+- Create `apps/web/.env.local` from `apps/web/.env.example`.
+- Set all `NEXT_PUBLIC_FIREBASE_*` values for the target Firebase project.
+
 ### Functions auth
 - Functions now require a verified Firebase ID token by default.
 - DEV-only bypass: set `DEV_BYPASS_AUTH=true` in non-production environments.
